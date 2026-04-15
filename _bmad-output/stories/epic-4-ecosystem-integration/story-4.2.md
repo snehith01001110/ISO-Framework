@@ -23,7 +23,7 @@ Implement a uv-specific `EcosystemAdapter` that detects Python projects (via `re
 - [ ] `teardown()` removes the `.venv/` directory
 - [ ] `name()` returns `"uv"`
 - [ ] If `uv` is not installed, `setup()` returns error with installation instructions
-- [ ] `WORKTREE_CORE_*` environment variables are available during setup commands
+- [ ] `ISO_CODE_*` environment variables are available during setup commands
 
 ## Tasks
 - [ ] Create `src/adapters/uv.rs` with `UvAdapter` struct

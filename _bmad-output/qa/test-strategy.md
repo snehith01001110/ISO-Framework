@@ -1,8 +1,8 @@
-# worktree-core Test Strategy
+# iso-code Test Strategy
 
 | Field | Value |
 |---|---|
-| **Project** | worktree-core |
+| **Project** | iso-code |
 | **PRD Version** | ISO_PRD-v1.5 |
 | **Author** | QA Agent |
 | **Date** | 2026-04-13 |
@@ -228,9 +228,9 @@ One test per integration target in PRD Section 18. Each test validates that the 
 
 ## 7. MCP Contract Tests
 
-For each of the 6 MCP tools defined in PRD Section 12.3, spawn the `worktree-core-mcp` binary as a subprocess with stdio transport. Send a JSON-RPC 2.0 request. Assert the response matches the documented schema and tool annotations.
+For each of the 6 MCP tools defined in PRD Section 12.3, spawn the `iso-code-mcp` binary as a subprocess with stdio transport. Send a JSON-RPC 2.0 request. Assert the response matches the documented schema and tool annotations.
 
-**Common setup:** Create a temporary git repository. Set `WORKTREE_CORE_HOME` to a tempdir. Spawn `worktree-core-mcp` with stdin/stdout pipes.
+**Common setup:** Create a temporary git repository. Set `ISO_CODE_HOME` to a tempdir. Spawn `iso-code-mcp` with stdin/stdout pipes.
 
 | MCP Tool | Request | Expected Response Schema | Annotation Checks | Test ID |
 |---|---|---|---|---|
@@ -259,7 +259,7 @@ Each milestone requires ALL listed test IDs to pass before the milestone is cons
 |---|---|---|---|
 | **M1** | Foundation (Weeks 1-6) | QA-G-001 through QA-G-012, QA-R-001 through QA-R-010, QA-C-001 through QA-C-008, QA-V-001 through QA-V-009, QA-M-001 through QA-M-006, QA-H-001, QA-S-001, QA-P-001 through QA-P-006 | Zero data loss in stress test. `cargo clippy -D warnings` clean. `cargo test` passes macOS + Linux. MCP server responds correctly. `wt hook` contract met. |
 | **M2** | Environment Lifecycle (Weeks 7-10) | QA-I-001 through QA-I-008, QA-O-001 through QA-O-006 | Adapter setup works. Port allocation unique across 20 worktrees. `attach()` recovers port from stale entries. `.DS_Store` handling on macOS. |
-| **M3** | Ecosystem Integration (Weeks 11-16) | All M1 + M2 tests, plus Windows platform tests (QA-G-007, QA-G-011 on real Windows) | Windows CI passing. At least one external project consuming `worktree-core`. Conflict detection MVP. |
+| **M3** | Ecosystem Integration (Weeks 11-16) | All M1 + M2 tests, plus Windows platform tests (QA-G-007, QA-G-011 on real Windows) | Windows CI passing. At least one external project consuming `iso-code`. Conflict detection MVP. |
 | **M4** | Hardening (Weeks 17-20) | All M1 + M2 + M3 tests, plus performance benchmarks (QA-P-001 through QA-P-006) meeting budgets | pnpm adapter shares virtual store. Pool of 5 worktrees available in < 1 second. Node.js bindings published. |
 
 **Stress test gate (applies to M1):**

@@ -7,13 +7,13 @@ Draft
 Epic 4: Ecosystem Integration
 
 ## User Story
-As a Python developer, I want to use worktree-core as a pip-installable package so that I can integrate worktree management into Python-based AI agent frameworks.
+As a Python developer, I want to use iso-code as a pip-installable package so that I can integrate worktree management into Python-based AI agent frameworks.
 
 ## Description
-Build a Python native extension using PyO3 that wraps the worktree-core Rust library. The package is installable via `pip install worktree-core` and provides a Pythonic API with type hints. This is a stretch goal -- it is only started if the Node.js binding (ISO-4.5) is complete and on schedule. The binding targets Python 3.9+ and uses maturin for build and publish to PyPI.
+Build a Python native extension using PyO3 that wraps the iso-code Rust library. The package is installable via `pip install iso-code` and provides a Pythonic API with type hints. This is a stretch goal -- it is only started if the Node.js binding (ISO-4.5) is complete and on schedule. The binding targets Python 3.9+ and uses maturin for build and publish to PyPI.
 
 ## Acceptance Criteria
-- [ ] `pip install worktree-core` installs successfully on Python 3.9+
+- [ ] `pip install iso-code` installs successfully on Python 3.9+
 - [ ] Python API mirrors the Rust public API: `Manager`, `Config`, `CreateOptions`, etc.
 - [ ] Type hints provided via `.pyi` stub files or inline type annotations
 - [ ] `Manager.create()`, `Manager.delete()`, `Manager.list()`, `Manager.gc()` all accessible from Python
@@ -24,7 +24,7 @@ Build a Python native extension using PyO3 that wraps the worktree-core Rust lib
 - [ ] Package published to PyPI
 
 ## Tasks
-- [ ] Create `worktree-core-python/` crate with PyO3 + maturin scaffolding
+- [ ] Create `iso-code-python/` crate with PyO3 + maturin scaffolding
 - [ ] Define `#[pyclass]` and `#[pymethods]` for public API types
 - [ ] Map Rust types to Python types (PathBuf -> str, Option -> Optional)
 - [ ] Map `WorktreeError` variants to Python exception classes
@@ -48,7 +48,7 @@ Build a Python native extension using PyO3 that wraps the worktree-core Rust lib
 - Python test: `manager = Manager('/path/to/repo', Config()); handles = manager.list()`
 - Verify type hints work: `reveal_type(manager.list())` should show `list[WorktreeHandle]`
 - Test error handling: `with pytest.raises(WorktreeError): manager.create('bad/branch', ...)`
-- Verify wheel installs without Rust: `pip install worktree_core-*.whl` on clean Python environment
+- Verify wheel installs without Rust: `pip install iso_code-*.whl` on clean Python environment
 
 ## Dependencies
 - ISO-4.5 (napi-rs Node.js Binding -- stretch goal gated on this being complete)

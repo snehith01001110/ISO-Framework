@@ -91,7 +91,7 @@ All 14 non-negotiable invariants from PRD Appendix A are enforced by stories and
 |---|---|---|---|
 | 1 | Shell out to git CLI. No git2 or gix for worktree CRUD. | ISO-1.6 (create), ISO-1.7 (delete), ISO-1.4 (list) | QA-R-001 through QA-R-010 (all integration tests use real git CLI) |
 | 2 | `git worktree list --porcelain` is source of truth. state.json is supplementary. | ISO-1.4 (parser), ISO-1.10 (reconciliation) | QA-G-001 through QA-G-012 (guards test against git output) |
-| 3 | Never write to `.git/worktrees/` directly. | ISO-1.6, ISO-1.10 (architecture constraint — all state in `.git/worktree-core/`) | QA-S-001 (stress test verifies no corruption) |
+| 3 | Never write to `.git/worktrees/` directly. | ISO-1.6, ISO-1.10 (architecture constraint — all state in `.git/iso-code/`) | QA-S-001 (stress test verifies no corruption) |
 | 4 | Never invoke `git gc` or `git prune`. | ISO-1.8 (gc uses `git worktree prune` only, never `git gc`) | QA-R-007, QA-R-010 (gc regression tests) |
 | 5 | All deletion paths run five-step unmerged commit check unless force=true. | ISO-1.7 (delete), ISO-1.8 (gc) | QA-R-001, QA-R-006 |
 | 6 | On failure after `git worktree add` succeeds, run `git worktree remove --force`. | ISO-1.6 (create part 2 — cleanup on failure) | QA-R-004 (git-crypt failure triggers cleanup) |
@@ -214,10 +214,10 @@ All requirements are met for implementation readiness:
 
 2. **Windows CI runner selection (ISO-3.8):** Confirm GitHub Actions Windows Server 2019 runner availability and cost. NTFS junction tests require actual Windows filesystem — no WSL workaround.
 
-3. **napi-rs npm package naming (ISO-4.5):** Confirm `@worktree-core/node` scope is available on npmjs.com. Alternative: `worktree-core` (unscoped). Reserve the name early.
+3. **napi-rs npm package naming (ISO-4.5):** Confirm `@iso-code/node` scope is available on npmjs.com. Alternative: `iso-code` (unscoped). Reserve the name early.
 
 4. **gix feature completeness (ISO-4.4):** `gix::Repository::merge_trees()` was feature-complete as of Nov 2024 per GitButler PR #5722. Verify current gix version on crates.io still exposes this API before committing to the feature-flagged integration.
 
-5. **Crates.io name reservation:** Reserve `worktree-core`, `worktree-core-cli`, and `worktree-core-mcp` on crates.io before M1 publish to prevent name squatting. This should be done in Sprint 1.
+5. **Crates.io name reservation:** Reserve `iso-code`, `iso-code-cli`, and `iso-code-mcp` on crates.io before M1 publish to prevent name squatting. This should be done in Sprint 1.
 
 6. **RFC-001 candidate — InUse state variant (OQ-6):** The `WorktreeState::InUse { pid: u32, since: String }` variant was not in the original PRD type definition. This is a non-breaking addition (the enum is `#[non_exhaustive]`), but should be documented as RFC-001 per PRD §13 since it adds a new variant to a public type.

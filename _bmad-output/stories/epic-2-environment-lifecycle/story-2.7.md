@@ -7,7 +7,7 @@ Draft
 Epic 2: Environment Lifecycle
 
 ## User Story
-As a Windows user, I want worktree-core to handle long file paths correctly so that worktrees with deep directory structures (like `node_modules`) do not fail with path-length errors.
+As a Windows user, I want iso-code to handle long file paths correctly so that worktrees with deep directory structures (like `node_modules`) do not fail with path-length errors.
 
 ## Description
 Windows has a legacy `MAX_PATH` limit of 260 characters. While Rust 1.58+ automatically prepends `\\?\` to paths for `std::fs` operations, external tools like git do not understand `\\?\` prefixes. The `dunce` crate strips these prefixes when paths are passed to external tools. This story integrates `dunce::simplified()` at all points where paths are passed to git or other external processes, and adds a compile test to verify `dunce` is used consistently.

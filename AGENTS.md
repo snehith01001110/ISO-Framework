@@ -1,7 +1,7 @@
-# ISO — worktree-core Project Context
+# ISO — iso-code Project Context
 
 ## What this project is
-`worktree-core` is a Rust library + CLI + MCP server for safe git worktree
+`iso-code` is a Rust library + CLI + MCP server for safe git worktree
 lifecycle management. It solves documented data-loss bugs in Claude Code,
 Cursor, Claude Squad, OpenCode, and VS Code Copilot.
 

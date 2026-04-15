@@ -7,25 +7,25 @@ Draft
 Epic 4: Ecosystem Integration
 
 ## User Story
-As a Node.js/TypeScript developer, I want to use worktree-core as an npm package with full TypeScript type definitions so that I can integrate worktree management into my JavaScript-based tools without shelling out to the CLI.
+As a Node.js/TypeScript developer, I want to use iso-code as an npm package with full TypeScript type definitions so that I can integrate worktree management into my JavaScript-based tools without shelling out to the CLI.
 
 ## Description
-Build a Node.js native addon using napi-rs that wraps the worktree-core Rust library. napi-rs generates TypeScript type definitions automatically from the Rust types, providing a first-class TypeScript API. The package is published to npm as `@worktree-core/node` and tested on Node.js 18+. This enables tools like Claude Code (TypeScript), OpenCode (TypeScript/Bun), and Cursor (TypeScript) to consume worktree-core as a native library dependency instead of through the MCP protocol.
+Build a Node.js native addon using napi-rs that wraps the iso-code Rust library. napi-rs generates TypeScript type definitions automatically from the Rust types, providing a first-class TypeScript API. The package is published to npm as `@iso-code/node` and tested on Node.js 18+. This enables tools like Claude Code (TypeScript), OpenCode (TypeScript/Bun), and Cursor (TypeScript) to consume iso-code as a native library dependency instead of through the MCP protocol.
 
 ## Acceptance Criteria
-- [ ] npm package `@worktree-core/node` builds and publishes successfully
+- [ ] npm package `@iso-code/node` builds and publishes successfully
 - [ ] TypeScript type definitions generated automatically by napi-rs
 - [ ] All public `Manager` methods exposed: `create()`, `delete()`, `list()`, `gc()`, `attach()`, `checkConflicts()`
 - [ ] `Config`, `CreateOptions`, `DeleteOptions`, `GcOptions` types available in TypeScript
 - [ ] `WorktreeHandle` returned as a plain JavaScript object with correct field types
 - [ ] Works on Node.js 18, 20, and 22
 - [ ] Native binary pre-built for macOS (x64, arm64), Linux (x64, arm64), and Windows (x64)
-- [ ] `npm install @worktree-core/node` works without requiring Rust toolchain on consumer's machine
+- [ ] `npm install @iso-code/node` works without requiring Rust toolchain on consumer's machine
 - [ ] Error types map to JavaScript `Error` subclasses with descriptive messages
 - [ ] Package size < 10 MB (native binary + TypeScript definitions)
 
 ## Tasks
-- [ ] Create `worktree-core-node/` crate with napi-rs scaffolding
+- [ ] Create `iso-code-node/` crate with napi-rs scaffolding
 - [ ] Define `#[napi]` attributes on public API functions
 - [ ] Map Rust types to napi-rs TypeScript equivalents
 - [ ] Map `WorktreeError` variants to JavaScript error classes
@@ -40,10 +40,10 @@ Build a Node.js native addon using napi-rs that wraps the worktree-core Rust lib
 
 ## Technical Notes
 - PRD Section 15 M4: "Node.js bindings via napi-rs (generates TypeScript types automatically)."
-- PRD Section 15 M4 ship criterion: "Node.js package published to npm as `@worktree-core/node`."
+- PRD Section 15 M4 ship criterion: "Node.js package published to npm as `@iso-code/node`."
 - napi-rs generates `.d.ts` files from `#[napi]` annotated Rust structs and functions. This eliminates manual type maintenance.
-- Pre-built binaries via `napi-rs`'s `@napi-rs/cli` support: the npm package includes platform-specific optional dependencies (`@worktree-core/node-darwin-arm64`, etc.) that resolve at install time.
-- The `@worktree-core/node` scope uses npm org-style scoping. This requires an npm organization or user scope.
+- Pre-built binaries via `napi-rs`'s `@napi-rs/cli` support: the npm package includes platform-specific optional dependencies (`@iso-code/node-darwin-arm64`, etc.) that resolve at install time.
+- The `@iso-code/node` scope uses npm org-style scoping. This requires an npm organization or user scope.
 - napi-rs supports async Rust functions mapped to JavaScript Promises.
 
 ## Test Hints
@@ -68,5 +68,5 @@ P3
 - PRD: Section 15 M4 (Scope -- Node.js bindings via napi-rs)
 - PRD: Section 18 (Integration Targets -- Claude Code, OpenCode, Cursor are TypeScript)
 - FR: FR-P3-005
-- M4 ship criterion: "Node.js package published to npm as @worktree-core/node"
+- M4 ship criterion: "Node.js package published to npm as @iso-code/node"
 - QA ref: QA-4.5-001 through QA-4.5-005

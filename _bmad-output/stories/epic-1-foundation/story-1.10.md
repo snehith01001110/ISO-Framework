@@ -13,8 +13,8 @@ As a library consumer, I want worktree metadata to be durably persisted across p
 Implement the full state persistence layer defined in PRD Sections 9 and 10: `state.json` v2 schema read/write, the hardened fd-lock protocol with multi-factor identity (PID + start_time + UUID + hostname), Full Jitter exponential backoff for lock contention, PID-reuse detection via `sysinfo`, and atomic write (tmp -> fsync -> rename). This is the backbone that all other Manager operations depend on for durability.
 
 ## Acceptance Criteria
-- [ ] `state.json` is stored at `<repo>/.git/worktree-core/state.json`
-- [ ] `state.lock` is stored at `<repo>/.git/worktree-core/state.lock`
+- [ ] `state.json` is stored at `<repo>/.git/iso-code/state.json`
+- [ ] `state.lock` is stored at `<repo>/.git/iso-code/state.lock`
 - [ ] `state.json` conforms to the v2 schema from PRD Section 10.2
 - [ ] Unknown fields in `state.json` are preserved via `#[serde(flatten)]` with catch-all `HashMap` (forward compatibility)
 - [ ] Lock file contains JSON with `pid`, `start_time`, `uuid`, `hostname`, `acquired_at`
@@ -27,7 +27,7 @@ Implement the full state persistence layer defined in PRD Sections 9 and 10: `st
 - [ ] Lock file is never deleted after releasing -- left in place for next acquisition to overwrite
 - [ ] Corrupt `state.json` triggers rebuild from `git worktree list` with logged warning
 - [ ] Schema migration from v1 to v2 is implemented
-- [ ] `WORKTREE_CORE_HOME` environment variable overrides all state file paths
+- [ ] `ISO_CODE_HOME` environment variable overrides all state file paths
 - [ ] `directories` crate is used for user config/cache paths
 
 ## Tasks
@@ -41,9 +41,9 @@ Implement the full state persistence layer defined in PRD Sections 9 and 10: `st
 - [ ] Implement `read_state()` and `write_state()` functions with lock-around-read-modify-write pattern (PRD Section 9.5)
 - [ ] Implement schema migration: `migrate(raw) -> StateV2` with v1->v2 transform per PRD Section 10.5
 - [ ] Handle corrupt state.json: catch `serde` parse errors, rebuild from `git worktree list`, log warning
-- [ ] Implement `WORKTREE_CORE_HOME` override: read env var, redirect all paths
+- [ ] Implement `ISO_CODE_HOME` override: read env var, redirect all paths
 - [ ] Implement network filesystem detection for lock degradation (PRD Section 9.6): skip advisory lock, use atomic rename only
-- [ ] Create `<repo>/.git/worktree-core/` directory at `Manager::new()` if absent
+- [ ] Create `<repo>/.git/iso-code/` directory at `Manager::new()` if absent
 - [ ] Write concurrency tests: two processes competing for the lock
 
 ## Technical Notes

@@ -10,7 +10,7 @@ Epic 1: Foundation
 As a library consumer, I want `Manager::create()` to reject unsafe worktree creation attempts with clear error messages so that I never accidentally create worktrees that would cause data loss, disk exhaustion, or repository corruption.
 
 ## Description
-Implement all 12 pre-create safety guards from PRD Section 8.1 in `worktree-core/src/guards.rs`. These guards run in exact order inside `Manager::create()` before `git worktree add` is called. Each guard returns a specific `WorktreeError` variant. This story covers steps 1-3 of the create sequence (PRD Section 5.3): run guards, write Pending entry, transition to Creating. It does NOT invoke git.
+Implement all 12 pre-create safety guards from PRD Section 8.1 in `iso-code/src/guards.rs`. These guards run in exact order inside `Manager::create()` before `git worktree add` is called. Each guard returns a specific `WorktreeError` variant. This story covers steps 1-3 of the create sequence (PRD Section 5.3): run guards, write Pending entry, transition to Creating. It does NOT invoke git.
 
 ## Acceptance Criteria
 - [ ] Guard 1: `check_branch_not_checked_out` returns `BranchAlreadyCheckedOut` when the branch is already in use

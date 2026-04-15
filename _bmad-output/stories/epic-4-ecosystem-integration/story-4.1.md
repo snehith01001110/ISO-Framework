@@ -21,7 +21,7 @@ Implement a pnpm-specific `EcosystemAdapter` that detects pnpm projects (via `pn
 - [ ] `teardown()` runs `pnpm prune` or is a no-op (symlinks are cleaned by `git worktree remove`)
 - [ ] `name()` returns `"pnpm"`
 - [ ] Adapter detects pnpm version and warns if < 9.0 (global virtual store support)
-- [ ] `WORKTREE_CORE_*` environment variables are available during `pnpm install`
+- [ ] `ISO_CODE_*` environment variables are available during `pnpm install`
 
 ## Tasks
 - [ ] Create `src/adapters/pnpm.rs` with `PnpmAdapter` struct

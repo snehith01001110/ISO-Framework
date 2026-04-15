@@ -1,9 +1,9 @@
-# ISO_PRD-v1.5 — worktree-core
+# ISO_PRD-v1.5 — iso-code
 ## Complete Implementation Specification
 
 | Field | Value |
 |---|---|
-| **Project** | worktree-core |
+| **Project** | iso-code |
 | **Version** | 1.5 |
 | **Date** | April 2026 |
 | **Author** | Snehith |
@@ -16,7 +16,7 @@
 
 ## How to Read This Document
 
-This document is self-contained. An implementation agent or developer starting from zero can implement `worktree-core` using only this file. It contains:
+This document is self-contained. An implementation agent or developer starting from zero can implement `iso-code` using only this file. It contains:
 
 - The complete problem being solved and the rationale for every design decision
 - Every public type, trait, and function signature in Rust
@@ -65,7 +65,7 @@ This document is self-contained. An implementation agent or developer starting f
 
 Every major AI coding orchestrator in 2026 — Claude Code, Claude Squad, Cursor, OpenCode, Gas Town, VS Code Copilot — uses git worktrees as the isolation mechanism for parallel agent sessions. None of these tools share any worktree management code. Each has independently implemented creation, deletion, and cleanup, and each has critical bugs that a shared, battle-tested library would prevent.
 
-This pattern — many small tools solving overlapping problems with no shared foundation — is exactly what precedes a successful shared library. `worktree-core` is that library.
+This pattern — many small tools solving overlapping problems with no shared foundation — is exactly what precedes a successful shared library. `iso-code` is that library.
 
 ### 1.2 Documented Failures
 
@@ -97,7 +97,7 @@ These are not hypothetical. They are filed bugs on public repositories.
 
 ### 1.3 Design Analogy
 
-`worktree-core` follows two proven models:
+`iso-code` follows two proven models:
 - **Testcontainers** — clean lifecycle abstraction (`create → configure → start → use → stop → cleanup`) with framework-specific extensions.
 - **simple-git** — thin, unopinionated wrapper around the git CLI (not a reimplementation). simple-git has 4M+ weekly npm downloads. GitKraken is actively migrating away from libgit2. The CLI-wrapping approach is the correct default.
 
@@ -107,9 +107,9 @@ These are not hypothetical. They are filed bugs on public repositories.
 
 ### 2.1 This Library IS
 
-- A Rust library crate (`worktree-core`) providing safe, concurrent worktree lifecycle management.
+- A Rust library crate (`iso-code`) providing safe, concurrent worktree lifecycle management.
 - A thin CLI (`wt`) wrapping the library for human and hook use.
-- A stdio MCP server (`worktree-core-mcp`) exposing the library to Claude Code, Cursor, and VS Code.
+- A stdio MCP server (`iso-code-mcp`) exposing the library to Claude Code, Cursor, and VS Code.
 - A git CLI wrapper — all git operations shell out to the user's installed git binary.
 - The canonical solution to the data-loss, orphan accumulation, and resource explosion problems documented in Section 1.2.
 
@@ -132,7 +132,7 @@ These are not hypothetical. They are filed bugs on public repositories.
 ## 3. Crate Structure
 
 ```
-worktree-core/          # Library crate
+iso-code/          # Library crate
   src/
     lib.rs              # Public API surface
     manager.rs          # Manager struct and all lifecycle operations
@@ -150,11 +150,11 @@ worktree-core/          # Library crate
       windows.rs        # NTFS junctions, LockFileEx, dunce paths
   Cargo.toml
 
-worktree-core-cli/      # Binary crate — `wt` command
+iso-code-cli/      # Binary crate — `wt` command
   src/main.rs
   Cargo.toml
 
-worktree-core-mcp/      # Binary crate — MCP server (stdio transport)
+iso-code-mcp/      # Binary crate — MCP server (stdio transport)
   src/main.rs
   Cargo.toml
 ```
@@ -294,7 +294,7 @@ pub struct Config {
     /// Minimum free disk space required to create a worktree. Default: 500 MB.
     pub min_free_disk_mb: u64,
     /// Override all state file paths (useful for CI and containers).
-    /// Mirrors the WORKTREE_CORE_HOME environment variable.
+    /// Mirrors the ISO_CODE_HOME environment variable.
     pub home_override: Option<PathBuf>,
     /// Maximum aggregate disk usage across all managed worktrees in bytes.
     /// None = unlimited. Default: None.
@@ -327,7 +327,7 @@ impl Default for Config {
             circuit_breaker_threshold: 3,
             stale_metadata_ttl_days: 30,
             lock_timeout_ms: 30_000,
-            creator_name: "worktree-core".to_string(),
+            creator_name: "iso-code".to_string(),
         }
     }
 }
@@ -549,7 +549,7 @@ pub struct Manager {
 /// 2. Canonicalize repo_root via dunce::canonicalize().
 /// 3. Confirm this is a git repository via `git rev-parse --git-dir`.
 /// 4. Detect and store git capabilities (see Section 4.8).
-/// 5. Create <repo>/.git/worktree-core/ directory if absent.
+/// 5. Create <repo>/.git/iso-code/ directory if absent.
 /// 6. Acquire state.lock and read or initialize state.json (see Section 9).
 /// 7. Run startup orphan scan (non-blocking; logs warnings only).
 /// 8. Sweep expired port leases.
@@ -616,7 +616,7 @@ impl Manager {
     /// output are moved to stale_worktrees, not silently dropped.
     pub fn list(&self) -> Result<Vec<WorktreeHandle>, WorktreeError>;
 
-    /// Register an existing worktree under worktree-core management.
+    /// Register an existing worktree under iso-code management.
     ///
     /// Preconditions:
     ///   - The worktree must already exist in git's registry.
@@ -674,13 +674,13 @@ pub trait EcosystemAdapter: Send + Sync {
     /// source_worktree is the main worktree path (for copying files from).
     ///
     /// Environment variables set before this call:
-    ///   WORKTREE_CORE_PATH   — absolute path to the new worktree
-    ///   WORKTREE_CORE_BRANCH — branch name
-    ///   WORKTREE_CORE_REPO   — absolute path to the main repo
-    ///   WORKTREE_CORE_NAME   — branch name (alias for compatibility with
+    ///   ISO_CODE_PATH   — absolute path to the new worktree
+    ///   ISO_CODE_BRANCH — branch name
+    ///   ISO_CODE_REPO   — absolute path to the main repo
+    ///   ISO_CODE_NAME   — branch name (alias for compatibility with
     ///                          CCManager and workmux conventions)
-    ///   WORKTREE_CORE_PORT   — allocated port as string, or "" if none
-    ///   WORKTREE_CORE_UUID   — session UUID
+    ///   ISO_CODE_PORT   — allocated port as string, or "" if none
+    ///   ISO_CODE_UUID   — session UUID
     ///
     /// Compatibility mapping:
     ///   CCManager: CCMANAGER_WORKTREE_PATH, CCMANAGER_BRANCH_NAME, CCMANAGER_GIT_ROOT
@@ -715,7 +715,7 @@ pub struct DefaultAdapter {
 }
 ```
 
-**ShellCommandAdapter** — runs arbitrary shell commands at create/delete time. Receives all `WORKTREE_CORE_*` environment variables. Mirrors Cursor's `.cursor/worktrees.json` and workmux's `post_create` hooks.
+**ShellCommandAdapter** — runs arbitrary shell commands at create/delete time. Receives all `ISO_CODE_*` environment variables. Mirrors Cursor's `.cursor/worktrees.json` and workmux's `post_create` hooks.
 
 ```rust
 pub struct ShellCommandAdapter {
@@ -1194,13 +1194,13 @@ If network filesystem detected:
 
 | Data | Location | Notes |
 |---|---|---|
-| Worktree metadata + port leases | `<repo>/.git/worktree-core/state.json` | Safe from `git gc` — custom dirs in `.git/` are never pruned |
-| Lock file | `<repo>/.git/worktree-core/state.lock` | Adjacent to state for atomic coordination |
-| User preferences | `$XDG_CONFIG_HOME/worktree-core/config.toml` | macOS: `~/Library/Application Support/worktree-core/` |
-| Cache | `$XDG_CACHE_HOME/worktree-core/` | Disposable |
-| Logs | `$XDG_STATE_HOME/worktree-core/` | Falls back to `$XDG_CACHE_HOME` on macOS/Windows |
+| Worktree metadata + port leases | `<repo>/.git/iso-code/state.json` | Safe from `git gc` — custom dirs in `.git/` are never pruned |
+| Lock file | `<repo>/.git/iso-code/state.lock` | Adjacent to state for atomic coordination |
+| User preferences | `$XDG_CONFIG_HOME/iso-code/config.toml` | macOS: `~/Library/Application Support/iso-code/` |
+| Cache | `$XDG_CACHE_HOME/iso-code/` | Disposable |
+| Logs | `$XDG_STATE_HOME/iso-code/` | Falls back to `$XDG_CACHE_HOME` on macOS/Windows |
 
-`WORKTREE_CORE_HOME` environment variable overrides all computed paths. When set, all state files go under `$WORKTREE_CORE_HOME/`. Use the `directories` crate v6.0.0 via `ProjectDirs::from("", "", "worktree-core")`.
+`ISO_CODE_HOME` environment variable overrides all computed paths. When set, all state files go under `$ISO_CODE_HOME/`. Use the `directories` crate v6.0.0 via `ProjectDirs::from("", "", "iso-code")`.
 
 ### 10.2 state.json Schema (v2)
 
@@ -1475,9 +1475,9 @@ This subcommand is the integration point for Claude Code's `WorktreeCreate` hook
 /absolute/path/to/created/worktree
 
 // Output — stderr (all other output):
-[worktree-core] Creating worktree for branch 'feature-auth'...
-[worktree-core] Running adapter setup...
-[worktree-core] Done. Worktree created at /abs/path/to/worktree
+[iso-code] Creating worktree for branch 'feature-auth'...
+[iso-code] Running adapter setup...
+[iso-code] Done. Worktree created at /abs/path/to/worktree
 ```
 
 **Implementation requirements:**
@@ -1500,7 +1500,7 @@ This subcommand is the integration point for Claude Code's `WorktreeCreate` hook
 
 ### 12.3 MCP Server
 
-The `worktree-core-mcp` binary runs as a stdio MCP server. Transport: stdio only in v1.0 (HTTP transport deferred to v1.1).
+The `iso-code-mcp` binary runs as a stdio MCP server. Transport: stdio only in v1.0 (HTTP transport deferred to v1.1).
 
 **Tool schema:**
 
@@ -1528,7 +1528,7 @@ Tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) are requi
 
 **Claude Code installation one-liner:**
 ```bash
-claude mcp add worktree-core -- worktree-core-mcp
+claude mcp add iso-code -- iso-code-mcp
 ```
 
 **Config snippets (include all three in README):**
@@ -1537,21 +1537,21 @@ claude mcp add worktree-core -- worktree-core-mcp
 // Claude Code / Cursor
 {
   "mcpServers": {
-    "worktree-core": { "command": "worktree-core-mcp", "args": [] }
+    "iso-code": { "command": "iso-code-mcp", "args": [] }
   }
 }
 
 // VS Code
 {
   "servers": {
-    "worktree-core": { "command": "worktree-core-mcp", "args": [] }
+    "iso-code": { "command": "iso-code-mcp", "args": [] }
   }
 }
 
 // OpenCode
 {
   "mcp": {
-    "worktree-core": { "command": "worktree-core-mcp", "args": [] }
+    "iso-code": { "command": "iso-code-mcp", "args": [] }
   }
 }
 ```
@@ -1628,7 +1628,7 @@ Reference accepted RFCs in code: `// DESIGN DECISION (RFC-003): Using RefCell he
 | `junction` | 1 | Windows NTFS junction creation without admin privileges. |
 | `jwalk` | 0.8 | Rayon-based parallel directory walking. <200ms for 50K files. Use `parallelism(RayonNewPool(num_cpus))` + `preload_metadata(true)`. |
 | `filesize` | 0.2 | Cross-platform disk usage. `st_blocks * 512` on Unix, `GetCompressedFileSizeW()` on Windows. |
-| `directories` | 6 | XDG-compliant platform-appropriate paths via `ProjectDirs::from("", "", "worktree-core")`. |
+| `directories` | 6 | XDG-compliant platform-appropriate paths via `ProjectDirs::from("", "", "iso-code")`. |
 | `dunce` | 1 | Strips `\\?\` prefix when passing paths to external tools on Windows. |
 | `thiserror` | 2 | Structured error types with `#[error]` derive. |
 | `serde` + `serde_json` | 1 | `state.json` serialization with `#[serde(flatten)]` for forward compatibility. |
@@ -1644,7 +1644,7 @@ Reference accepted RFCs in code: `// DESIGN DECISION (RFC-003): Using RefCell he
 
 ### Milestone 1 — Foundation (Weeks 1–6)
 
-**Deliverable:** `worktree-core` crate on crates.io, `wt` CLI binary, `worktree-core-mcp` binary with 6 tools.
+**Deliverable:** `iso-code` crate on crates.io, `wt` CLI binary, `iso-code-mcp` binary with 6 tools.
 
 **Scope:**
 - All types from Section 4 implemented and compiling.
@@ -1671,7 +1671,7 @@ Reference accepted RFCs in code: `// DESIGN DECISION (RFC-003): Using RefCell he
 - `wt gc` successfully cleans orphaned worktrees from a simulated OpenCode failure (1000 orphans, varying ages).
 - `wt hook --stdin-format claude-code` produces exactly one line on stdout (the absolute path), nothing else.
 - MCP server responds correctly to `worktree_list`, `worktree_create`, `worktree_delete`, `worktree_gc`.
-- Crates published: `worktree-core`, `worktree-core-cli`, `worktree-core-mcp`.
+- Crates published: `iso-code`, `iso-code-cli`, `iso-code-mcp`.
 
 ### Milestone 2 — Environment Lifecycle (Weeks 7–10)
 
@@ -1679,7 +1679,7 @@ Reference accepted RFCs in code: `// DESIGN DECISION (RFC-003): Using RefCell he
 
 **Scope:**
 - `DefaultAdapter` — file copy from configurable list.
-- `ShellCommandAdapter` — arbitrary shell commands with `WORKTREE_CORE_*` env vars.
+- `ShellCommandAdapter` — arbitrary shell commands with `ISO_CODE_*` env vars.
 - Port allocation exposed in `wt create --port` and `wt status`.
 - macOS `.DS_Store` handling in `wt delete` and `wt gc` (`.DS_Store` blocks `git worktree remove` — remove it first).
 - Windows MAX_PATH workarounds via `dunce`.
@@ -1700,14 +1700,14 @@ Reference accepted RFCs in code: `// DESIGN DECISION (RFC-003): Using RefCell he
 
 **Scope:**
 - Claude Squad worktree setup hook integration (after PR #268/#270 merge — coordinate with maintainers).
-- `workmux` crate integration PR — `worktree-core` as optional dependency behind feature flag.
+- `workmux` crate integration PR — `iso-code` as optional dependency behind feature flag.
 - Conflict detection MVP: `wt check` subcommand using `git merge-tree --write-tree -z` (Git ≥ 2.38 required; graceful degradation message on older git).
 - MCP `conflict_check` tool implementation (replaces `not_implemented` stub).
 - HTTP transport for MCP server (for Cursor remote, VS Code Dev Containers, SSH setups).
 - Windows platform: full implementation (replace stubs with actual platform code).
 
 **Ship criteria:**
-- At least one external project consuming `worktree-core` as a library dependency.
+- At least one external project consuming `iso-code` as a library dependency.
 - `wt check` correctly identifies conflicts for a test corpus of 20 merge scenarios.
 - MCP HTTP transport responds correctly in a VS Code Dev Container environment.
 - Windows CI passing (`cargo test` on Windows Server 2019 runner).
@@ -1727,7 +1727,7 @@ Reference accepted RFCs in code: `// DESIGN DECISION (RFC-003): Using RefCell he
 **Ship criteria:**
 - pnpm adapter: 5 worktrees share a single virtual store. `du -sh node_modules` in each shows <1 MB (symlinks only).
 - uv adapter: worktree with `requirements.txt` fully installed in <10 seconds.
-- Node.js package published to npm as `@worktree-core/node`.
+- Node.js package published to npm as `@iso-code/node`.
 - Worktree pool of 5 worktrees available in <1 second (vs. ~5 seconds for on-demand creation).
 
 ---
@@ -1785,7 +1785,7 @@ git worktree list -z 2>&1 | grep "unknown option"
 
 ## 18. Integration Targets
 
-| Target | Stars | Language | Integration Path | Bugs Fixed by worktree-core |
+| Target | Stars | Language | Integration Path | Bugs Fixed by iso-code |
 |---|---|---|---|---|
 | Claude Code | ~112K | TypeScript | MCP (Week 1) + `wt hook` (Week 2) | `#38287`, `#41010`, `#38538`, `#27881`, `#43730`, `#33045` |
 | OpenCode | ~140K | TypeScript/Bun | MCP only | `#14648`, `#9290` |

@@ -1,4 +1,4 @@
-# Architecture -- worktree-core
+# Architecture -- iso-code
 
 | Field | Value |
 |---|---|
@@ -18,19 +18,19 @@
                        +-----------+--------------+
                                    |
                        +-----------v--------------+
-                       | worktree-core-mcp        |
+                       | iso-code-mcp        |
                        | bin: stdio MCP server    |
                        | src/main.rs              |
                        +-----------+--------------+
                                    |
                        +-----------v--------------+
-                       | worktree-core-cli        |
+                       | iso-code-cli        |
                        | bin: wt                  |
                        | src/main.rs              |
                        +-----------+--------------+
                                    |
                        +-----------v--------------+
-                       | worktree-core (lib)      |
+                       | iso-code (lib)      |
                        | src/lib.rs               |
                        | All lifecycle logic      |
                        +--------------------------+
@@ -38,13 +38,13 @@
 
 **Dependency direction:** each layer depends only on the layer below it. The library crate has no binary targets. The CLI and MCP binaries depend on the library crate. All three crates share a workspace `Cargo.toml` at the repository root.
 
-**Future bindings** (napi-rs for Node.js, PyO3 for Python) will be separate workspace members that depend on `worktree-core` the same way the CLI and MCP crates do. They do not exist yet and are not part of Milestone 1.
+**Future bindings** (napi-rs for Node.js, PyO3 for Python) will be separate workspace members that depend on `iso-code` the same way the CLI and MCP crates do. They do not exist yet and are not part of Milestone 1.
 
 ---
 
 ## 2. Module Map
 
-Every module under `worktree-core/src/` with its PRD cross-reference and single-sentence responsibility.
+Every module under `iso-code/src/` with its PRD cross-reference and single-sentence responsibility.
 
 | Module | PRD Section | Responsibility |
 |---|---|---|
@@ -175,7 +175,7 @@ pub struct Config {
     pub circuit_breaker_threshold: u32,      // default: 3
     pub stale_metadata_ttl_days: u32,        // default: 30
     pub lock_timeout_ms: u64,                // default: 30_000
-    pub creator_name: String,                // default: "worktree-core"
+    pub creator_name: String,                // default: "iso-code"
     pub deny_network_filesystem: bool,       // default: false (OQ-2)
     pub circuit_breaker_reset_secs: u64,     // default: 60 (OQ-4)
 }
@@ -327,7 +327,7 @@ All guards are internal functions in `src/guards.rs`. Not part of the public API
 
 ### 6.1 Lock file location
 
-`<repo>/.git/worktree-core/state.lock` -- adjacent to `state.json` for atomic coordination.
+`<repo>/.git/iso-code/state.lock` -- adjacent to `state.json` for atomic coordination.
 
 ### 6.2 Backend
 
@@ -619,9 +619,9 @@ wt check                                    # conflict detection (reserved, not 
 
 **stderr (all other output):**
 ```
-[worktree-core] Creating worktree for branch 'feature-auth'...
-[worktree-core] Running adapter setup...
-[worktree-core] Done.
+[iso-code] Creating worktree for branch 'feature-auth'...
+[iso-code] Running adapter setup...
+[iso-code] Done.
 ```
 
 **Implementation requirements:**
@@ -637,7 +637,7 @@ wt check                                    # conflict detection (reserved, not 
 
 ## 12. MCP Tool Table
 
-The `worktree-core-mcp` binary runs as a stdio MCP server. Transport: stdio only in v1.0.
+The `iso-code-mcp` binary runs as a stdio MCP server. Transport: stdio only in v1.0.
 
 | Tool | readOnlyHint | destructiveHint | idempotentHint | v1.0 |
 |---|---|---|---|---|
@@ -672,7 +672,7 @@ Tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) are requi
 | `junction` | 1 | Manual `DeviceIoControl` calls | Windows NTFS junction creation without admin privileges. No-op on non-Windows. |
 | `jwalk` | 0.8 | `std::fs::read_dir` recursive walk | Rayon-based parallel directory walking. <200ms for 50K files. |
 | `filesize` | 0.2 | Manual `st_blocks * 512` / `GetCompressedFileSizeW()` | Cross-platform actual-disk-usage calculation (not logical file size). |
-| `directories` | 6 | Manual XDG path computation | XDG-compliant platform-appropriate paths via `ProjectDirs::from("", "", "worktree-core")`. |
+| `directories` | 6 | Manual XDG path computation | XDG-compliant platform-appropriate paths via `ProjectDirs::from("", "", "iso-code")`. |
 | `dunce` | 1 | Manual `\\?\` prefix stripping | Strips verbatim path prefix when passing paths to external tools on Windows. Identity operation on Unix. |
 | `thiserror` | 2 | Manual `impl Display` + `impl Error` | Structured error types with `#[error]` derive. Reduces boilerplate. |
 | `serde` + `serde_json` | 1 | Manual JSON serialization | `state.json` serialization with `#[serde(flatten)]` for forward compatibility. |
@@ -718,7 +718,7 @@ Tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) are requi
 
 **Decision:** `Manager::attach()` is permitted on bare repos when path is explicitly provided.
 
-**Reasoning:** Bare repos are a legitimate use case for worktree-based workflows (server-side CI, shared repositories). Since `attach()` operates on an already-existing git worktree (it does not call `git worktree add`), there is no ambiguity about path defaults. The worktree already exists in git's registry; attach simply brings it under worktree-core management.
+**Reasoning:** Bare repos are a legitimate use case for worktree-based workflows (server-side CI, shared repositories). Since `attach()` operates on an already-existing git worktree (it does not call `git worktree add`), there is no ambiguity about path defaults. The worktree already exists in git's registry; attach simply brings it under iso-code management.
 
 **Affected PRD sections:** SS 5.3 (Manager::attach).
 **Story impact:** Document in function doc comment. No code change needed beyond documentation.

@@ -14,14 +14,14 @@ Expose the port lease model (implemented in Epic 1) through the CLI. `wt create 
 
 ## Acceptance Criteria
 - [ ] `wt create <branch> --port` allocates a port lease and stores it in `state.json`
-- [ ] Allocated port is displayed to stderr during creation: `[worktree-core] Port allocated: 3142`
+- [ ] Allocated port is displayed to stderr during creation: `[iso-code] Port allocated: 3142`
 - [ ] `wt status` output includes port column showing assigned ports for each worktree
 - [ ] `wt status --json` includes `port` field in each worktree entry (null if no port allocated)
 - [ ] 20 simultaneous worktrees created with `--port` all receive unique ports with zero collision
 - [ ] Port range defaults to 3100-5100 (Config defaults from PRD Section 4.4)
 - [ ] When all ports in range are exhausted, `wt create --port` returns a clear error message
 - [ ] Port lease is released when worktree is deleted via `wt delete`
-- [ ] `WORKTREE_CORE_PORT` environment variable is set correctly for adapters when `--port` is used
+- [ ] `ISO_CODE_PORT` environment variable is set correctly for adapters when `--port` is used
 
 ## Tasks
 - [ ] Add `--port` flag to `wt create` command in clap argument parser
@@ -33,7 +33,7 @@ Expose the port lease model (implemented in Epic 1) through the CLI. `wt create 
 - [ ] Write test: 20 worktrees created with `--port` all get unique ports
 - [ ] Write test: port released on `wt delete`
 - [ ] Write test: exhausted port range returns clear error
-- [ ] Write test: `WORKTREE_CORE_PORT` env var set correctly during adapter setup
+- [ ] Write test: `ISO_CODE_PORT` env var set correctly during adapter setup
 
 ## Technical Notes
 - PRD Section 10.4 defines the port assignment algorithm: `sha256(repo_id:branch)[0..4] as u32` for preferred port, with sequential probe on collision.

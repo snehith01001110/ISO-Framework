@@ -24,7 +24,7 @@ Integrate `gix::Repository::merge_trees()` as an alternative conflict detection 
 - [ ] Performance: gix path is measurably faster than CLI path for 20-pair matrix
 
 ## Tasks
-- [ ] Add `conflict-detection-gix` feature flag to `worktree-core/Cargo.toml`
+- [ ] Add `conflict-detection-gix` feature flag to `iso-code/Cargo.toml`
 - [ ] Add `gix` crate dependency gated behind the feature flag
 - [ ] Create `src/conflict/gix_backend.rs` module
 - [ ] Implement `check_conflicts_gix()` using `gix::Repository::merge_trees()`
@@ -41,7 +41,7 @@ Integrate `gix::Repository::merge_trees()` as an alternative conflict detection 
 - PRD Section 15 M4: "gix::Repository::merge_trees() integration replacing CLI fallback for conflict detection."
 - Appendix A rule 1: "Shell out to git CLI. Never use git2 or gix for worktree CRUD." This rule applies to worktree lifecycle (add/remove/list), NOT to conflict detection.
 - GitButler PR #5722 demonstrates the viability of `gix::merge_trees()` as a replacement for `git2::merge_trees()`.
-- The feature flag approach means worktree-core's default dependency footprint stays lean (no C dependencies, no gix).
+- The feature flag approach means iso-code's default dependency footprint stays lean (no C dependencies, no gix).
 - `gix` is a pure-Rust git implementation. `gix::Repository::merge_trees()` was feature-complete as of November 2024.
 
 ## Test Hints

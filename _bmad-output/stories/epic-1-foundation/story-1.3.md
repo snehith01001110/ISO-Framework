@@ -26,7 +26,7 @@ Implement the first two steps of the `Manager::new()` startup sequence (PRD Sect
 - [ ] The parsed version is stored in `GitCapabilities.version`
 
 ## Tasks
-- [ ] Create version parsing function in `worktree-core/src/git.rs`: `fn parse_git_version(output: &str) -> Result<GitVersion, WorktreeError>`
+- [ ] Create version parsing function in `iso-code/src/git.rs`: `fn parse_git_version(output: &str) -> Result<GitVersion, WorktreeError>`
 - [ ] Handle format variations: `"git version X.Y.Z"`, `"git version X.Y.Z (Apple Git-NNN)"`, `"git version X.Y.Z.windows.N"`
 - [ ] Create capability detection function: `fn detect_capabilities(version: &GitVersion) -> GitCapabilities`
 - [ ] Compare version against `GitVersion::MINIMUM` (2.20.0); return `GitVersionTooOld` if less
