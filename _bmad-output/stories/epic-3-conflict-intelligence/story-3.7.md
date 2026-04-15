@@ -7,14 +7,14 @@ Draft
 Epic 3: Conflict Intelligence
 
 ## User Story
-As a developer using VS Code Dev Containers or SSH remote environments, I want an HTTP transport for the MCP server so that my AI coding assistant can communicate with worktree-core across network boundaries where stdio is not available.
+As a developer using VS Code Dev Containers or SSH remote environments, I want an HTTP transport for the MCP server so that my AI coding assistant can communicate with iso-code across network boundaries where stdio is not available.
 
 ## Description
 Implement an HTTP-based MCP transport using the Axum web framework, behind a feature flag `mcp-http`. The HTTP server listens on a configurable port and exposes all MCP tools over HTTP POST. This enables remote development scenarios where the MCP client (e.g., VS Code Copilot in a Dev Container) cannot use stdio to communicate with the server. The transport must handle concurrent requests, CORS headers for web-based clients, and graceful shutdown.
 
 ## Acceptance Criteria
 - [ ] HTTP MCP transport implemented behind `features = ["mcp-http"]` feature flag in `Cargo.toml`
-- [ ] Server starts with `worktree-core-mcp --transport http --port <port>` command
+- [ ] Server starts with `iso-code-mcp --transport http --port <port>` command
 - [ ] Default port is 8080 if not specified
 - [ ] All 6 MCP tools accessible via HTTP POST to `/mcp` endpoint
 - [ ] Request/response format follows MCP HTTP transport specification (JSON-RPC over HTTP)
@@ -26,7 +26,7 @@ Implement an HTTP-based MCP transport using the Axum web framework, behind a fea
 - [ ] Feature flag `mcp-http` does not add Axum dependency to builds that do not opt in
 
 ## Tasks
-- [ ] Add `mcp-http` feature flag to `worktree-core-mcp/Cargo.toml` with Axum dependency
+- [ ] Add `mcp-http` feature flag to `iso-code-mcp/Cargo.toml` with Axum dependency
 - [ ] Implement `HttpTransport` struct with `axum::Router` setup
 - [ ] Implement `/mcp` POST handler that dispatches JSON-RPC requests to tool handlers
 - [ ] Implement `/health` GET handler returning 200 OK

@@ -10,13 +10,13 @@ Epic 2: Environment Lifecycle
 As a developer, I want to run arbitrary shell commands when worktrees are created or deleted so that I can automate environment setup tasks like `npm install`, database seeding, or Docker container provisioning.
 
 ## Description
-Implement `ShellCommandAdapter` as a built-in `EcosystemAdapter` that executes arbitrary shell commands at create and delete time. The adapter has three configurable hook points: `post_create`, `pre_delete`, and `post_delete`. Commands receive all `WORKTREE_CORE_*` environment variables. Command execution has a configurable timeout, captures stderr for error reporting, and runs in the worktree directory as the working directory. This mirrors Cursor's `.cursor/worktrees.json` and workmux's `post_create` hooks.
+Implement `ShellCommandAdapter` as a built-in `EcosystemAdapter` that executes arbitrary shell commands at create and delete time. The adapter has three configurable hook points: `post_create`, `pre_delete`, and `post_delete`. Commands receive all `ISO_CODE_*` environment variables. Command execution has a configurable timeout, captures stderr for error reporting, and runs in the worktree directory as the working directory. This mirrors Cursor's `.cursor/worktrees.json` and workmux's `post_create` hooks.
 
 ## Acceptance Criteria
 - [ ] `ShellCommandAdapter` struct defined with `post_create: Option<String>`, `pre_delete: Option<String>`, `post_delete: Option<String>` fields matching PRD Section 6.1
 - [ ] `setup()` executes `post_create` command if set, with worktree directory as CWD
 - [ ] `teardown()` executes `pre_delete` command if set, then `post_delete` after `git worktree remove`
-- [ ] All `WORKTREE_CORE_*` environment variables are injected (PATH, BRANCH, REPO, NAME, PORT, UUID)
+- [ ] All `ISO_CODE_*` environment variables are injected (PATH, BRANCH, REPO, NAME, PORT, UUID)
 - [ ] CCManager compatibility variables injected (CCMANAGER_WORKTREE_PATH, CCMANAGER_BRANCH_NAME, CCMANAGER_GIT_ROOT)
 - [ ] workmux compatibility variables injected (WM_WORKTREE_PATH, WM_PROJECT_ROOT)
 - [ ] Commands have a configurable timeout (default 120 seconds); timeout returns an error
@@ -50,7 +50,7 @@ Implement `ShellCommandAdapter` as a built-in `EcosystemAdapter` that executes a
 - Test `post_create` with a command that writes a marker file; verify the file exists in worktree
 - Test timeout by running `sleep 999` with a 1-second timeout; verify error is returned
 - Test stderr capture: run a command that writes to stderr and exits non-zero; verify stderr in error message
-- Test environment variables: run `env | grep WORKTREE_CORE` and verify all 6 are present
+- Test environment variables: run `env | grep ISO_CODE` and verify all 6 are present
 - Integration test: create a minimal `package.json`, run `npm install` via ShellCommandAdapter, verify `node_modules` exists
 
 ## Dependencies

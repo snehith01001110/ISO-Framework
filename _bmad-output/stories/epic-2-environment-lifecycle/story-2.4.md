@@ -10,11 +10,11 @@ Epic 2: Environment Lifecycle
 As a developer using the CLI, I want `wt create --setup` to automatically select and run the appropriate adapter so that I get a fully bootstrapped worktree without manual post-creation steps.
 
 ## Description
-Wire the `--setup` flag on `wt create` to the adapter system. The CLI reads adapter configuration from the user config file (`config.toml` or project-local `.worktree-core.toml`) to determine which adapter to use and how it is configured. When `--setup` is passed, the selected adapter's `setup()` method is invoked after worktree creation. All adapter output (progress, warnings, errors) goes to stderr only -- stdout remains reserved for machine-readable output in hook mode.
+Wire the `--setup` flag on `wt create` to the adapter system. The CLI reads adapter configuration from the user config file (`config.toml` or project-local `.iso-code.toml`) to determine which adapter to use and how it is configured. When `--setup` is passed, the selected adapter's `setup()` method is invoked after worktree creation. All adapter output (progress, warnings, errors) goes to stderr only -- stdout remains reserved for machine-readable output in hook mode.
 
 ## Acceptance Criteria
 - [ ] `wt create <branch> --setup` triggers adapter selection and execution
-- [ ] Adapter selection reads from config file (project-local `.worktree-core.toml` takes precedence over user-level `config.toml`)
+- [ ] Adapter selection reads from config file (project-local `.iso-code.toml` takes precedence over user-level `config.toml`)
 - [ ] Config format supports both `DefaultAdapter` and `ShellCommandAdapter` with their respective options
 - [ ] If no adapter is configured and `--setup` is passed, log a warning to stderr and proceed without error
 - [ ] All adapter output (stdout and stderr from child processes) is forwarded to stderr of the CLI process
@@ -25,7 +25,7 @@ Wire the `--setup` flag on `wt create` to the adapter system. The CLI reads adap
 
 ## Tasks
 - [ ] Add `--setup` flag to `wt create` command in `clap` argument parser
-- [ ] Implement adapter config deserialization from `.worktree-core.toml` and `config.toml`
+- [ ] Implement adapter config deserialization from `.iso-code.toml` and `config.toml`
 - [ ] Implement adapter factory that constructs the right adapter type from config
 - [ ] Wire `CreateOptions { setup: true }` when `--setup` flag is present
 - [ ] Redirect all subprocess stdout to stderr in CLI context

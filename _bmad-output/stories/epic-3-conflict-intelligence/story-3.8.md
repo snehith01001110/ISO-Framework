@@ -7,7 +7,7 @@ Draft
 Epic 3: Conflict Intelligence
 
 ## User Story
-As a Windows developer, I want worktree-core to fully support my platform so that I can use it with my Windows-based AI coding setup without encountering platform-specific failures.
+As a Windows developer, I want iso-code to fully support my platform so that I can use it with my Windows-based AI coding setup without encountering platform-specific failures.
 
 ## Description
 Replace all Windows platform stubs (created in M1 as compile-only placeholders) with full implementations. This covers file locking via `LockFileEx` through the `fd-lock` crate, NTFS junction creation via the `junction` crate, disk usage calculation via `GetCompressedFileSizeW`, path handling with `dunce`, `core.longpaths = true` detection, and network drive detection via `GetDriveTypeW`. Establish Windows CI on GitHub Actions with `cargo test` running on a Windows Server 2019 runner.

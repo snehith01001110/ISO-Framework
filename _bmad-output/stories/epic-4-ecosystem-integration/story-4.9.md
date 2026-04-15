@@ -7,10 +7,10 @@ Draft
 Epic 4: Ecosystem Integration
 
 ## User Story
-As a developer evaluating or integrating worktree-core, I want a comprehensive documentation site so that I can understand the API, configure MCP clients, and set up ecosystem adapters without reading raw source code.
+As a developer evaluating or integrating iso-code, I want a comprehensive documentation site so that I can understand the API, configure MCP clients, and set up ecosystem adapters without reading raw source code.
 
 ## Description
-Build a documentation site using mdBook that covers the complete worktree-core API, integration guides for each supported MCP client, ecosystem adapter configuration, configuration reference, and troubleshooting. The site complements the auto-generated `docs.rs` API documentation with narrative guides, architecture diagrams, and worked examples. It is published via GitHub Pages.
+Build a documentation site using mdBook that covers the complete iso-code API, integration guides for each supported MCP client, ecosystem adapter configuration, configuration reference, and troubleshooting. The site complements the auto-generated `docs.rs` API documentation with narrative guides, architecture diagrams, and worked examples. It is published via GitHub Pages.
 
 ## Acceptance Criteria
 - [ ] mdBook site builds successfully and renders all pages
@@ -43,7 +43,7 @@ Build a documentation site using mdBook that covers the complete worktree-core A
 - mdBook is the standard documentation tool for Rust projects. It is used by the Rust Book, Tokio, and many other crate docs.
 - `mdbook test` extracts Rust code blocks and compiles them, catching documentation rot.
 - GitHub Pages deployment is free for public repositories.
-- The docs site should link to `docs.rs/worktree-core` for auto-generated API reference and focus on narrative guides.
+- The docs site should link to `docs.rs/iso-code` for auto-generated API reference and focus on narrative guides.
 - Config snippet reference must match PRD Section 12.3 exactly, especially the VS Code `"servers"` vs. `"mcpServers"` distinction.
 - Architecture diagrams can use Mermaid (supported by mdBook via the mermaid preprocessor plugin).
 

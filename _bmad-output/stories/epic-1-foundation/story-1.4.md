@@ -27,7 +27,7 @@ Implement the parser for `git worktree list --porcelain` output as defined in PR
 - [ ] Empty output (no worktrees) returns an empty `Vec<WorktreeHandle>`
 
 ## Tasks
-- [ ] Implement `fn parse_worktree_list_porcelain(output: &[u8], nul_delimited: bool) -> Result<Vec<WorktreeHandle>, WorktreeError>` in `worktree-core/src/git.rs`
+- [ ] Implement `fn parse_worktree_list_porcelain(output: &[u8], nul_delimited: bool) -> Result<Vec<WorktreeHandle>, WorktreeError>` in `iso-code/src/git.rs`
 - [ ] Split on blank lines (newline mode) or NUL bytes (NUL mode) to separate worktree blocks
 - [ ] For each block, parse key-value lines: `worktree`, `HEAD`, `branch`/`detached`/`bare`, `locked`, `prunable`
 - [ ] Strip `refs/heads/` prefix from branch field

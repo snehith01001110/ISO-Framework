@@ -1,4 +1,4 @@
-# Project Brief: worktree-core
+# Project Brief: iso-code
 
 **The canonical safe worktree lifecycle library for AI coding orchestrators.**
 
@@ -21,7 +21,7 @@ These are not hypothetical risks. They are filed bugs on public repositories, an
 | `opencode#14648` | OpenCode | Each retry on failure generated a new random worktree name with no cleanup. A 2 GB repo accumulated hundreds of MB per retry with no upper bound. |
 | `claude-squad#260` | Claude Squad | 5 worktrees each duplicated a 2 GB `node_modules` directory -- 10 GB wasted. No environment setup, no shared dependency stores, no disk budget. |
 
-Every one of these bugs would be prevented by a shared library that enforces pre-delete merge checks, CWD guards, rate limits, disk budgets, git-crypt detection, and proper state reconciliation. `worktree-core` is that library.
+Every one of these bugs would be prevented by a shared library that enforces pre-delete merge checks, CWD guards, rate limits, disk budgets, git-crypt detection, and proper state reconciliation. `iso-code` is that library.
 
 ---
 
@@ -39,7 +39,7 @@ Every one of these bugs would be prevented by a shared library that enforces pre
 
 ## 3. Vision
 
-At the completion of Milestone 4, `worktree-core` is the standard worktree lifecycle layer across the AI coding ecosystem. The Rust library crate is published on crates.io with a stable public API. Node.js bindings are published to npm. At least one major external orchestrator consumes it as a dependency. The `wt` CLI is the human-facing interface for worktree management, and the `worktree-core-mcp` server is installed across Claude Code, Cursor, VS Code Copilot, and OpenCode via a single config line. Conflict detection via `git merge-tree` is operational. Ecosystem-specific adapters (pnpm, uv, cargo) eliminate the multi-gigabyte dependency duplication problem. Worktree pooling provides sub-second checkout for interactive workflows. The data-loss bugs catalogued in Section 1 are structurally impossible for any consumer of the library.
+At the completion of Milestone 4, `iso-code` is the standard worktree lifecycle layer across the AI coding ecosystem. The Rust library crate is published on crates.io with a stable public API. Node.js bindings are published to npm. At least one major external orchestrator consumes it as a dependency. The `wt` CLI is the human-facing interface for worktree management, and the `iso-code-mcp` server is installed across Claude Code, Cursor, VS Code Copilot, and OpenCode via a single config line. Conflict detection via `git merge-tree` is operational. Ecosystem-specific adapters (pnpm, uv, cargo) eliminate the multi-gigabyte dependency duplication problem. Worktree pooling provides sub-second checkout for interactive workflows. The data-loss bugs catalogued in Section 1 are structurally impossible for any consumer of the library.
 
 ---
 
@@ -47,17 +47,17 @@ At the completion of Milestone 4, `worktree-core` is the standard worktree lifec
 
 ### In Scope
 
-- **`worktree-core` library crate** -- the Rust library with `Manager`, all safety guards, state persistence, locking protocol, and port lease model.
+- **`iso-code` library crate** -- the Rust library with `Manager`, all safety guards, state persistence, locking protocol, and port lease model.
 - **`wt` CLI** -- thin binary wrapping the library for human use, shell hooks, and CI scripts. Includes `wt hook --stdin-format claude-code` for direct Claude Code integration.
-- **`worktree-core-mcp` MCP server** -- stdio transport (v1.0), HTTP transport (v1.1), exposing 6 tools (`worktree_list`, `worktree_status`, `worktree_create`, `worktree_delete`, `worktree_gc`, `conflict_check`).
+- **`iso-code-mcp` MCP server** -- stdio transport (v1.0), HTTP transport (v1.1), exposing 6 tools (`worktree_list`, `worktree_status`, `worktree_create`, `worktree_delete`, `worktree_gc`, `conflict_check`).
 - **`DefaultAdapter`** -- copies configurable files (`.env`, `.env.local`, etc.) into new worktrees.
-- **`ShellCommandAdapter`** -- runs arbitrary shell commands at create/delete time with `WORKTREE_CORE_*` environment variables.
+- **`ShellCommandAdapter`** -- runs arbitrary shell commands at create/delete time with `ISO_CODE_*` environment variables.
 - **napi-rs Node.js bindings** (M4) and PyO3 Python bindings (M4).
 - **Conflict detection** via `git merge-tree --write-tree` (Git 2.38+), with `gix::merge_trees()` as an optional compiled-in backend in M4.
 
 ### Out of Scope
 
-- **Full agent orchestrator** -- worktree-core manages worktree lifecycle, not agent coordination, task scheduling, or prompt routing.
+- **Full agent orchestrator** -- iso-code manages worktree lifecycle, not agent coordination, task scheduling, or prompt routing.
 - **GUI** -- no graphical interface; CLI and MCP only.
 - **Hosted service** -- single-machine operation only; no SaaS, no cloud API.
 - **Distributed / network coordination in v1.0** -- no multi-machine lock coordination. Network filesystem support is degraded-mode only (advisory locking skipped; atomic rename only).
@@ -101,7 +101,7 @@ The current ecosystem is fragmented. At least ten tools manage git worktrees for
 
 **The gap:** Not a single one of these tools exposes a reusable, importable library in any language. Every tool has reimplemented worktree creation, deletion, and cleanup from scratch, and every tool has shipped the same categories of bugs: data loss from unguarded deletion, orphan accumulation from missing cleanup, disk exhaustion from missing rate limits, and environment breakage from missing setup hooks.
 
-**worktree-core's positioning:** It is the shared foundation layer -- the "testcontainers for worktrees." It does not compete with orchestrators; it makes them reliable. Any tool that manages worktrees can depend on this crate and immediately inherit safe deletion guards, orphan GC, disk budgets, port allocation, git-crypt detection, and state persistence. The library is intentionally unopinionated about branch naming, orchestration strategy, or UI.
+**iso-code's positioning:** It is the shared foundation layer -- the "testcontainers for worktrees." It does not compete with orchestrators; it makes them reliable. Any tool that manages worktrees can depend on this crate and immediately inherit safe deletion guards, orphan GC, disk budgets, port allocation, git-crypt detection, and state persistence. The library is intentionally unopinionated about branch naming, orchestration strategy, or UI.
 
 ---
 
@@ -113,7 +113,7 @@ The current ecosystem is fragmented. At least ten tools manage git worktrees for
 | 2 | **GC races with active agents** -- `wt gc` evicts a worktree that an agent is actively using but whose process is not the lock holder and has not called `git worktree lock`. | Medium | High | GC never touches locked worktrees. GC defaults to `dry_run = true`. Open question (PRD S19 Q6) to be resolved before M1: add an "in-use" heartbeat or require agents to lock worktrees during active sessions. |
 | 3 | **Port lease renewal undefined** -- the spec defines 8-hour TTL with renewal every ~2.5 hours but does not specify who triggers renewal or what "active use" means, risking port collisions after lease expiry. | Medium | Medium | Open question (PRD S19 Q1) to be resolved before M1. Likely resolution: caller-driven renewal via explicit `Manager` method, not background timer, to avoid hidden thread/async dependencies in a library crate. |
 | 4 | **Circuit breaker with no reset path** -- 3 consecutive git failures open the circuit breaker and block all operations, but no reset mechanism is specified, potentially bricking a session until the `Manager` is reconstructed. | Medium | Medium | Open question (PRD S19 Q4). Likely resolution: automatic reset after a configurable cooldown period (e.g., 60 seconds), plus a `Manager::reset_circuit_breaker()` escape hatch for callers. |
-| 5 | **Adoption failure -- external projects do not consume the crate** -- if no orchestrator integrates `worktree-core` by M3, the library becomes a standalone tool rather than a shared foundation, undermining its core value proposition. | Medium | High | Early MCP server delivery (M1) provides zero-integration-cost adoption for Claude Code, Cursor, and VS Code. Claude Squad PR integration and workmux crate dependency are planned for M3 with explicit maintainer coordination. The `wt hook` subcommand provides a Claude Code integration path that requires only a one-line config change. |
+| 5 | **Adoption failure -- external projects do not consume the crate** -- if no orchestrator integrates `iso-code` by M3, the library becomes a standalone tool rather than a shared foundation, undermining its core value proposition. | Medium | High | Early MCP server delivery (M1) provides zero-integration-cost adoption for Claude Code, Cursor, and VS Code. Claude Squad PR integration and workmux crate dependency are planned for M3 with explicit maintainer coordination. The `wt hook` subcommand provides a Claude Code integration path that requires only a one-line config change. |
 
 ---
 
@@ -125,7 +125,7 @@ These are the measurable, non-negotiable ship gates:
 
 2. **`wt gc` cleans 1,000 orphans in a single run.** Simulating an OpenCode-style failure (1,000 orphaned worktrees of varying ages), `wt gc --confirm` must identify and remove all eligible orphans in one invocation without manual intervention.
 
-3. **At least one external project consuming the crate as a library by M3.** Either Claude Squad (via PR hooks) or workmux (as a Cargo dependency) must ship a release that depends on `worktree-core`.
+3. **At least one external project consuming the crate as a library by M3.** Either Claude Squad (via PR hooks) or workmux (as a Cargo dependency) must ship a release that depends on `iso-code`.
 
 4. **`wt hook --stdin-format claude-code` produces exactly one line on stdout.** The absolute worktree path and nothing else -- all other output goes to stderr. This is a hard contract with Claude Code's hook protocol.
 
@@ -133,4 +133,4 @@ These are the measurable, non-negotiable ship gates:
 
 ---
 
-*This brief covers worktree-core (codename: ISO), PRD v1.5, April 2026. Solo maintainer: Snehith.*
+*This brief covers iso-code (codename: ISO), PRD v1.5, April 2026. Solo maintainer: Snehith.*

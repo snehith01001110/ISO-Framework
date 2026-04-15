@@ -26,8 +26,8 @@ Implement every public type defined in PRD Section 4: `WorktreeHandle`, `Worktre
 - [ ] `cargo clippy -- -D warnings` passes after type definitions
 
 ## Tasks
-- [ ] Create `worktree-core/src/types.rs` with `WorktreeHandle`, `WorktreeState`, `ReflinkMode`, `CopyOutcome`, `Config`, `CreateOptions`, `DeleteOptions`, `GcOptions`, `GcReport`, `GitCapabilities`, `GitVersion`, `PortLease`
-- [ ] Create `worktree-core/src/error.rs` with `WorktreeError` enum using `thiserror` derives
+- [ ] Create `iso-code/src/types.rs` with `WorktreeHandle`, `WorktreeState`, `ReflinkMode`, `CopyOutcome`, `Config`, `CreateOptions`, `DeleteOptions`, `GcOptions`, `GcReport`, `GitCapabilities`, `GitVersion`, `PortLease`
+- [ ] Create `iso-code/src/error.rs` with `WorktreeError` enum using `thiserror` derives
 - [ ] Implement `Default` for `Config` with all values from PRD Section 4.4
 - [ ] Implement `Default` for `GcOptions` with `dry_run: true`
 - [ ] Implement `Default` for `CreateOptions` and `DeleteOptions`

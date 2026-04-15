@@ -7,7 +7,7 @@ Draft
 Epic 2: Environment Lifecycle
 
 ## User Story
-As a developer integrating worktree-core with my AI coding assistant, I want correct MCP configuration snippets for my specific client so that I can set up the integration without trial and error.
+As a developer integrating iso-code with my AI coding assistant, I want correct MCP configuration snippets for my specific client so that I can set up the integration without trial and error.
 
 ## Description
 Write comprehensive MCP server documentation in the project README with configuration snippets for all four supported clients: Claude Code, Cursor, VS Code Copilot, and OpenCode. Each client uses a different config file and a different root key name, and getting these wrong causes silent failures. The documentation must include the one-liner installation command for Claude Code and complete JSON config blocks for all clients.
@@ -18,7 +18,7 @@ Write comprehensive MCP server documentation in the project README with configur
 - [ ] Cursor snippet uses `mcpServers` key in `.cursor/mcp.json`
 - [ ] VS Code Copilot snippet uses `servers` key (NOT `mcpServers`) in `.vscode/mcp.json`
 - [ ] OpenCode snippet uses `mcp` key in `opencode.jsonc`
-- [ ] Claude Code one-liner included: `claude mcp add worktree-core -- worktree-core-mcp`
+- [ ] Claude Code one-liner included: `claude mcp add iso-code -- iso-code-mcp`
 - [ ] Each snippet is copy-paste ready with correct JSON syntax
 - [ ] Tool annotations table included: `readOnlyHint`, `destructiveHint`, `idempotentHint` for all 6 tools
 - [ ] Warning callout about VS Code using `servers` not `mcpServers` is visually prominent

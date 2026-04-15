@@ -10,10 +10,10 @@ Epic 1: Foundation
 As a Claude Code / Cursor / VS Code Copilot user, I want an MCP server exposing worktree operations as tools so that AI agents can manage worktrees through the standard MCP protocol without custom integration code.
 
 ## Description
-Implement the `worktree-core-mcp` binary as a stdio MCP server with 6 tools defined in PRD Section 12.3. Each tool must have correct MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) per the MCP spec 2025-03-26+. The `conflict_check` tool returns `not_implemented` in v1.0. Transport is stdio only; HTTP transport is deferred to M3.
+Implement the `iso-code-mcp` binary as a stdio MCP server with 6 tools defined in PRD Section 12.3. Each tool must have correct MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) per the MCP spec 2025-03-26+. The `conflict_check` tool returns `not_implemented` in v1.0. Transport is stdio only; HTTP transport is deferred to M3.
 
 ## Acceptance Criteria
-- [ ] `worktree-core-mcp` binary starts and communicates via stdio (stdin/stdout JSON-RPC)
+- [ ] `iso-code-mcp` binary starts and communicates via stdio (stdin/stdout JSON-RPC)
 - [ ] 6 tools are registered: `worktree_list`, `worktree_status`, `conflict_check`, `worktree_create`, `worktree_delete`, `worktree_gc`
 - [ ] `worktree_list` has annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`
 - [ ] `worktree_status` has annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`
@@ -29,7 +29,7 @@ Implement the `worktree-core-mcp` binary as a stdio MCP server with 6 tools defi
 - [ ] MCP server handles `initialize`, `tools/list`, and `tools/call` JSON-RPC methods
 
 ## Tasks
-- [ ] Set up `worktree-core-mcp` crate with MCP SDK dependency (or implement stdio JSON-RPC protocol directly)
+- [ ] Set up `iso-code-mcp` crate with MCP SDK dependency (or implement stdio JSON-RPC protocol directly)
 - [ ] Define tool schemas for all 6 tools with input parameters matching the `Manager` API
 - [ ] Implement `worktree_list` tool handler: instantiate Manager, call `list()`, serialize result
 - [ ] Implement `worktree_status` tool handler: call `list()` + aggregate disk usage, format status report

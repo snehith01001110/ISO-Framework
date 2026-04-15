@@ -1,7 +1,7 @@
 # Epic 1: Foundation
 
 ## Summary
-Establish the `worktree-core` Rust workspace, implement all public types (PRD Section 4), the full Manager lifecycle (`create`, `delete`, `list`, `gc`, `attach`), state persistence with hardened locking, port lease allocation, the `wt hook` Claude Code integration, and a skeleton MCP server with 6 tools. This epic delivers a publishable crate on crates.io that prevents the data-loss and orphan-accumulation bugs documented in PRD Section 1.2.
+Establish the `iso-code` Rust workspace, implement all public types (PRD Section 4), the full Manager lifecycle (`create`, `delete`, `list`, `gc`, `attach`), state persistence with hardened locking, port lease allocation, the `wt hook` Claude Code integration, and a skeleton MCP server with 6 tools. This epic delivers a publishable crate on crates.io that prevents the data-loss and orphan-accumulation bugs documented in PRD Section 1.2.
 
 ## Goals
 - Cargo workspace compiling on macOS and Linux with CI (GitHub Actions), clippy clean.
@@ -29,7 +29,7 @@ None -- this is the first epic.
 - `wt gc` successfully cleans orphaned worktrees from a simulated OpenCode failure (1000 orphans, varying ages).
 - `wt hook --stdin-format claude-code` produces exactly one line on stdout (the absolute path), nothing else.
 - MCP server responds correctly to `worktree_list`, `worktree_create`, `worktree_delete`, `worktree_gc`.
-- Crates published: `worktree-core`, `worktree-core-cli`, `worktree-core-mcp`.
+- Crates published: `iso-code`, `iso-code-cli`, `iso-code-mcp`.
 
 ## Stories
 - ISO-1.1: Workspace Scaffolding

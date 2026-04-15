@@ -35,15 +35,15 @@ Create the M1 ship-gate stress tests defined in PRD Section 15: 100 create/delet
 - [ ] Verify GC performance: 1,000-orphan scan completes within reasonable time (<60s)
 - [ ] Add `description` to all three `Cargo.toml` files
 - [ ] Add `license = "MIT OR Apache-2.0"` to all three `Cargo.toml` files
-- [ ] Add `repository = "https://github.com/<org>/worktree-core"` to all three `Cargo.toml` files
-- [ ] Add `keywords` and `categories` to `worktree-core/Cargo.toml`
+- [ ] Add `repository = "https://github.com/<org>/iso-code"` to all three `Cargo.toml` files
+- [ ] Add `keywords` and `categories` to `iso-code/Cargo.toml`
 - [ ] Create `LICENSE-MIT` and `LICENSE-APACHE` at workspace root
 - [ ] Create `README.md` at workspace root with installation instructions and MCP config snippets from PRD Section 12.3
 - [ ] Add `#![doc = include_str!("../README.md")]` to `lib.rs` for docs.rs
 - [ ] Run `cargo doc --no-deps` and fix any doc warnings
-- [ ] Run `cargo publish --dry-run -p worktree-core` and fix any issues
-- [ ] Run `cargo publish --dry-run -p worktree-core-cli` and fix any issues
-- [ ] Run `cargo publish --dry-run -p worktree-core-mcp` and fix any issues
+- [ ] Run `cargo publish --dry-run -p iso-code` and fix any issues
+- [ ] Run `cargo publish --dry-run -p iso-code-cli` and fix any issues
+- [ ] Run `cargo publish --dry-run -p iso-code-mcp` and fix any issues
 
 ## Technical Notes
 - PRD Section 15 M1 ship criteria: "Zero data loss in stress test: 100 create/delete cycles with simulated crash injection (SIGKILL at random points)"
@@ -53,7 +53,7 @@ Create the M1 ship-gate stress tests defined in PRD Section 15: 100 create/delet
 - 1,000-orphan test: create worktrees via direct git commands (not Manager) to simulate external tools leaving orphans
 - PRD Section 12.3: MCP config snippets for Claude Code, Cursor, VS Code Copilot, and OpenCode must be in README
 - crates.io requires `license` or `license-file` field; dual license MIT/Apache-2.0 is standard for Rust ecosystem
-- `cargo publish` order matters: `worktree-core` first (library), then CLI and MCP (which depend on it)
+- `cargo publish` order matters: `iso-code` first (library), then CLI and MCP (which depend on it)
 
 ## Test Hints
 - QA-R-008: 100 create/delete cycles with no data loss

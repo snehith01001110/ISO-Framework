@@ -1,8 +1,8 @@
-# Product Requirements Document: worktree-core
+# Product Requirements Document: iso-code
 
 | Field | Value |
 |---|---|
-| **Product** | worktree-core |
+| **Product** | iso-code |
 | **PRD Version** | 1.0 (derived from ISO_PRD v1.5) |
 | **Date** | April 2026 |
 | **Status** | Implementation-Ready |
@@ -13,7 +13,7 @@
 
 ### Vision
 
-worktree-core is the canonical shared library for safe, concurrent git worktree lifecycle management. Every major AI coding orchestrator in 2026 -- Claude Code, Claude Squad, Cursor, OpenCode, VS Code Copilot -- uses git worktrees for parallel agent isolation, yet none share any management code. Each has independently reimplemented creation, deletion, and cleanup, producing documented data-loss bugs, unbounded resource consumption, and broken environment isolation. worktree-core eliminates these classes of failure with a single battle-tested Rust library that shells out to the git CLI, treats `git worktree list --porcelain` as the authoritative source of truth, and enforces safety checks on every lifecycle transition.
+iso-code is the canonical shared library for safe, concurrent git worktree lifecycle management. Every major AI coding orchestrator in 2026 -- Claude Code, Claude Squad, Cursor, OpenCode, VS Code Copilot -- uses git worktrees for parallel agent isolation, yet none share any management code. Each has independently reimplemented creation, deletion, and cleanup, producing documented data-loss bugs, unbounded resource consumption, and broken environment isolation. iso-code eliminates these classes of failure with a single battle-tested Rust library that shells out to the git CLI, treats `git worktree list --porcelain` as the authoritative source of truth, and enforces safety checks on every lifecycle transition.
 
 ### Goals
 
@@ -30,7 +30,7 @@ The primary audience is AI coding orchestrator developers building tools that sp
 ### P0 -- Epic 1: Foundation
 
 **FR-P0-001: Manager Constructor with Git Version Detection**
-Manager::new() constructs a Manager for a given repository root. It runs `git --version`, parses the version, returns GitVersionTooOld if < 2.20, canonicalizes the repo root via dunce, confirms it is a git repository, detects and stores all git capabilities in a GitCapabilities map, creates the `.git/worktree-core/` directory if absent, acquires state.lock, reads or initializes state.json, runs a startup orphan scan, and sweeps expired port leases.
+Manager::new() constructs a Manager for a given repository root. It runs `git --version`, parses the version, returns GitVersionTooOld if < 2.20, canonicalizes the repo root via dunce, confirms it is a git repository, detects and stores all git capabilities in a GitCapabilities map, creates the `.git/iso-code/` directory if absent, acquires state.lock, reads or initializes state.json, runs a startup orphan scan, and sweeps expired port leases.
 - Acceptance criteria:
   - Returns GitNotFound when git is not in PATH
   - Returns GitVersionTooOld when git < 2.20
@@ -83,7 +83,7 @@ Manager::gc() runs garbage collection on orphaned and stale worktrees. Default b
 - Epic: Foundation
 
 **FR-P0-006: Manager::attach()**
-Manager::attach() registers an existing worktree (already in git's registry) under worktree-core management without calling `git worktree add`. If a stale_worktrees entry exists for this path, it recovers the port lease and session_uuid.
+Manager::attach() registers an existing worktree (already in git's registry) under iso-code management without calling `git worktree add`. If a stale_worktrees entry exists for this path, it recovers the port lease and session_uuid.
 - Acceptance criteria:
   - Precondition: worktree must already exist in git's registry
   - Recovers port lease and session_uuid from stale_worktrees when a matching entry exists
@@ -162,7 +162,7 @@ The `wt hook` subcommand reads JSON from stdin (`session_id`, `cwd`, `hook_event
 - Epic: Foundation
 
 **FR-P0-014: MCP Server with 6 Tools**
-The worktree-core-mcp binary runs as a stdio MCP server exposing 6 tools: worktree_list, worktree_status, conflict_check, worktree_create, worktree_delete, worktree_gc. Each tool carries readOnlyHint, destructiveHint, and idempotentHint annotations per MCP spec 2025-03-26+. conflict_check returns `not_implemented` in v1.0.
+The iso-code-mcp binary runs as a stdio MCP server exposing 6 tools: worktree_list, worktree_status, conflict_check, worktree_create, worktree_delete, worktree_gc. Each tool carries readOnlyHint, destructiveHint, and idempotentHint annotations per MCP spec 2025-03-26+. conflict_check returns `not_implemented` in v1.0.
 - Acceptance criteria:
   - All 6 tools are registered with correct annotations
   - Read-only tools (list, status, conflict_check) have readOnlyHint = true
@@ -193,10 +193,10 @@ Worktree creation is capped by Config::max_worktrees (default 20). The circuit b
 ### P1 -- Epic 2: Environment Lifecycle
 
 **FR-P1-001: EcosystemAdapter Trait**
-Defines the EcosystemAdapter trait with name(), detect(), setup(), teardown(), and branch_name() methods. Setup receives WORKTREE_CORE_* environment variables and compatibility-mapped CCManager/workmux variables.
+Defines the EcosystemAdapter trait with name(), detect(), setup(), teardown(), and branch_name() methods. Setup receives ISO_CODE_* environment variables and compatibility-mapped CCManager/workmux variables.
 - Acceptance criteria:
   - Trait is object-safe (Send + Sync)
-  - setup() receives all 6 WORKTREE_CORE_* env vars
+  - setup() receives all 6 ISO_CODE_* env vars
   - branch_name() defaults to identity (no transformation)
   - Compatibility env vars set for CCManager and workmux
 - Priority: P1
@@ -212,11 +212,11 @@ Copies files from a configurable list (e.g., .env, .env.local) from the source w
 - Epic: Environment Lifecycle
 
 **FR-P1-003: ShellCommandAdapter**
-Runs arbitrary shell commands at create/delete time via post_create, pre_delete, and post_delete hooks. Receives all WORKTREE_CORE_* environment variables.
+Runs arbitrary shell commands at create/delete time via post_create, pre_delete, and post_delete hooks. Receives all ISO_CODE_* environment variables.
 - Acceptance criteria:
   - Executes post_create command after worktree creation
   - Executes pre_delete before and post_delete after worktree removal
-  - All WORKTREE_CORE_* env vars available to commands
+  - All ISO_CODE_* env vars available to commands
   - Non-zero exit from post_create is reported but does not roll back worktree creation
 - Priority: P1
 - Epic: Environment Lifecycle
@@ -332,7 +332,7 @@ Integrates `gix::Repository::merge_trees()` as an alternative to the CLI-based c
 - Epic: Ecosystem Integration
 
 **FR-P3-005: napi-rs Node.js Bindings**
-Publishes Node.js bindings via napi-rs with auto-generated TypeScript types as `@worktree-core/node`.
+Publishes Node.js bindings via napi-rs with auto-generated TypeScript types as `@iso-code/node`.
 - Acceptance criteria:
   - npm package published with TypeScript type definitions
   - Core lifecycle operations (create, delete, list, gc) available from Node.js
@@ -399,7 +399,7 @@ README includes config snippets for Claude Code, Cursor, VS Code Copilot, and Op
 
 ### Security
 
-- State files are stored inside `.git/worktree-core/`, safe from `git gc` pruning.
+- State files are stored inside `.git/iso-code/`, safe from `git gc` pruning.
 - Lock files use advisory locking with RAII guards; no persistent lock file deletion (prevents races).
 - Network filesystem detection degrades locking to atomic-rename-only mode with logged warnings.
 - Branch names are never transformed or sanitized by the library; git validates them.
@@ -417,7 +417,7 @@ README includes config snippets for Claude Code, Cursor, VS Code Copilot, and Op
 
 ### Epic 1: Foundation (Milestone 1, Weeks 1-6)
 
-**Deliverable:** worktree-core crate on crates.io, wt CLI binary, worktree-core-mcp binary with 6 tools.
+**Deliverable:** iso-code crate on crates.io, wt CLI binary, iso-code-mcp binary with 6 tools.
 
 **Ship criteria (all must pass):**
 - `cargo clippy -- -D warnings` clean.
@@ -426,7 +426,7 @@ README includes config snippets for Claude Code, Cursor, VS Code Copilot, and Op
 - `wt gc` successfully cleans orphaned worktrees from a simulated OpenCode failure (1000 orphans, varying ages).
 - `wt hook --stdin-format claude-code` produces exactly one line on stdout (the absolute path), nothing else.
 - MCP server responds correctly to `worktree_list`, `worktree_create`, `worktree_delete`, `worktree_gc`.
-- Crates published: `worktree-core`, `worktree-core-cli`, `worktree-core-mcp`.
+- Crates published: `iso-code`, `iso-code-cli`, `iso-code-mcp`.
 
 ### Epic 2: Environment Lifecycle (Milestone 2, Weeks 7-10)
 
@@ -444,7 +444,7 @@ README includes config snippets for Claude Code, Cursor, VS Code Copilot, and Op
 **Deliverable:** External integrations, conflict detection MVP, HTTP MCP transport.
 
 **Ship criteria (all must pass):**
-- At least one external project consuming `worktree-core` as a library dependency.
+- At least one external project consuming `iso-code` as a library dependency.
 - `wt check` correctly identifies conflicts for a test corpus of 20 merge scenarios.
 - MCP HTTP transport responds correctly in a VS Code Dev Container environment.
 - Windows CI passing (`cargo test` on Windows Server 2019 runner).
@@ -456,7 +456,7 @@ README includes config snippets for Claude Code, Cursor, VS Code Copilot, and Op
 **Ship criteria (all must pass):**
 - pnpm adapter: 5 worktrees share a single virtual store. `du -sh node_modules` in each shows <1 MB (symlinks only).
 - uv adapter: worktree with `requirements.txt` fully installed in <10 seconds.
-- Node.js package published to npm as `@worktree-core/node`.
+- Node.js package published to npm as `@iso-code/node`.
 - Worktree pool of 5 worktrees available in <1 second (vs. ~5 seconds for on-demand creation).
 
 ---
@@ -534,13 +534,13 @@ README includes config snippets for Claude Code, Cursor, VS Code Copilot, and Op
 
 | Data | Location | Notes |
 |---|---|---|
-| Worktree metadata + port leases | `<repo>/.git/worktree-core/state.json` | Safe from `git gc` -- custom dirs in `.git/` are never pruned |
-| Lock file | `<repo>/.git/worktree-core/state.lock` | Adjacent to state for atomic coordination |
-| User preferences | `$XDG_CONFIG_HOME/worktree-core/config.toml` | macOS: `~/Library/Application Support/worktree-core/` |
-| Cache | `$XDG_CACHE_HOME/worktree-core/` | Disposable |
-| Logs | `$XDG_STATE_HOME/worktree-core/` | Falls back to `$XDG_CACHE_HOME` on macOS/Windows |
+| Worktree metadata + port leases | `<repo>/.git/iso-code/state.json` | Safe from `git gc` -- custom dirs in `.git/` are never pruned |
+| Lock file | `<repo>/.git/iso-code/state.lock` | Adjacent to state for atomic coordination |
+| User preferences | `$XDG_CONFIG_HOME/iso-code/config.toml` | macOS: `~/Library/Application Support/iso-code/` |
+| Cache | `$XDG_CACHE_HOME/iso-code/` | Disposable |
+| Logs | `$XDG_STATE_HOME/iso-code/` | Falls back to `$XDG_CACHE_HOME` on macOS/Windows |
 
-`WORKTREE_CORE_HOME` environment variable overrides all computed paths. Uses the `directories` crate v6.0.0 via `ProjectDirs::from("", "", "worktree-core")`.
+`ISO_CODE_HOME` environment variable overrides all computed paths. Uses the `directories` crate v6.0.0 via `ProjectDirs::from("", "", "iso-code")`.
 
 ### Locking Protocol Summary
 

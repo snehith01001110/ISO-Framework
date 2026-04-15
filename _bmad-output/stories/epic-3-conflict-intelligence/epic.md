@@ -17,7 +17,7 @@ Implement conflict detection using `git merge-tree --write-tree -z`, expose it t
 Epic 2: Environment Lifecycle (all stories ISO-2.1 through ISO-2.10)
 
 ## Ship Criteria
-- At least one external project consuming `worktree-core` as a library dependency.
+- At least one external project consuming `iso-code` as a library dependency.
 - `wt check` correctly identifies conflicts for 20 merge scenarios.
 - MCP HTTP transport responds correctly in VS Code Dev Container.
 - Windows CI passing (`cargo test` on Windows Server 2019 runner).

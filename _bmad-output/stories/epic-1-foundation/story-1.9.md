@@ -7,7 +7,7 @@ Draft
 Epic 1: Foundation
 
 ## User Story
-As a library consumer, I want to register an existing worktree (created outside worktree-core) under management so that it gains port leases, state tracking, and lifecycle protection without being recreated.
+As a library consumer, I want to register an existing worktree (created outside iso-code) under management so that it gains port leases, state tracking, and lifecycle protection without being recreated.
 
 ## Description
 Implement `Manager::attach()` from PRD Section 5.3. This method registers a worktree that already exists in git's registry without calling `git worktree add`. It synthesizes a `WorktreeHandle` from git's porcelain output, optionally runs `EcosystemAdapter::setup()`, and writes the entry to `state.json`. If a `stale_worktrees` entry exists for this path, the original port lease and session_uuid are recovered. Bare repo behavior is permitted per OQ-3 resolution (callers supply explicit absolute paths).

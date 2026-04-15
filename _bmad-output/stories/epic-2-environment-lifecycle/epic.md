@@ -1,12 +1,12 @@
 # Epic 2: Environment Lifecycle
 
 ## Summary
-Implement the `EcosystemAdapter` trait and its two built-in adapters (`DefaultAdapter`, `ShellCommandAdapter`), expose port allocation through the CLI, harden `wt attach` recovery from stale worktrees, and resolve cross-platform cleanup issues (macOS `.DS_Store`, Windows `MAX_PATH`). This epic turns `worktree-core` from a bare lifecycle manager into a tool that bootstraps fully working development environments on creation and tears them down cleanly on deletion.
+Implement the `EcosystemAdapter` trait and its two built-in adapters (`DefaultAdapter`, `ShellCommandAdapter`), expose port allocation through the CLI, harden `wt attach` recovery from stale worktrees, and resolve cross-platform cleanup issues (macOS `.DS_Store`, Windows `MAX_PATH`). This epic turns `iso-code` from a bare lifecycle manager into a tool that bootstraps fully working development environments on creation and tears them down cleanly on deletion.
 
 ## Goals
 - `EcosystemAdapter` trait defined exactly per PRD Section 6 with `detect()`, `setup()`, `teardown()`, and default `branch_name()`.
 - `DefaultAdapter` copies files from a configurable list (`.env`, `.env.local`, `config/local.toml`) into new worktrees.
-- `ShellCommandAdapter` executes arbitrary shell commands at create/delete time with all `WORKTREE_CORE_*` environment variables injected.
+- `ShellCommandAdapter` executes arbitrary shell commands at create/delete time with all `ISO_CODE_*` environment variables injected.
 - `wt create --setup` integrates adapter selection from config; all adapter output goes to stderr only.
 - `wt create --port` allocates a port lease; `wt status` displays active port assignments.
 - 20 simultaneous worktrees receive unique ports with zero collision.

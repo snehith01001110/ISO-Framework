@@ -19,14 +19,14 @@ Implement the `wt hook` subcommand with the exact stdin/stdout contract defined 
 - [ ] `Manager::create()` is called with the extracted branch name
 - [ ] stdout contains ONLY the absolute worktree path followed by a single newline
 - [ ] No other characters appear on stdout -- no log messages, no progress output, no trailing whitespace
-- [ ] All log messages, git progress, and adapter output go to stderr with `[worktree-core]` prefix
+- [ ] All log messages, git progress, and adapter output go to stderr with `[iso-code]` prefix
 - [ ] Exit code is 0 on success
 - [ ] Exit code is non-zero on failure, with error details on stderr
 - [ ] `--setup` flag triggers `EcosystemAdapter::setup()` after creation
 - [ ] Invalid or missing stdin JSON returns non-zero exit with descriptive stderr message
 
 ## Tasks
-- [ ] Add `hook` subcommand to `worktree-core-cli` with `--stdin-format claude-code` and `--setup` flags
+- [ ] Add `hook` subcommand to `iso-code-cli` with `--stdin-format claude-code` and `--setup` flags
 - [ ] Implement stdin JSON deserialization: define struct with `session_id`, `cwd`, `hook_event_name`, `name` fields
 - [ ] Redirect all library logging to stderr (ensure no `println!` or `print!` calls leak to stdout)
 - [ ] Call `Manager::new(cwd, config)` with the cwd from stdin JSON
@@ -40,11 +40,11 @@ Implement the `wt hook` subcommand with the exact stdin/stdout contract defined 
 ## Technical Notes
 - PRD Section 12.2: "Claude Code sends JSON on stdin and expects only the absolute path on stdout. Any extra stdout causes Claude Code to hang silently."
 - PRD Section 12.2: confirmed bug `claude-code#27467` -- cannot be worked around; the library must comply
-- PRD Section 12.2: stderr format is `[worktree-core] <message>`
+- PRD Section 12.2: stderr format is `[iso-code] <message>`
 - Appendix A rule 11: "Branch names are never transformed by the core library"
 - The hook config in Claude Code is: `"WorktreeCreate": "wt hook --stdin-format claude-code --setup"`
 - Use `std::io::stdin().read_to_string()` for stdin reading
-- Use `eprintln!("[worktree-core] ...")` for stderr logging
+- Use `eprintln!("[iso-code] ...")` for stderr logging
 - Use `std::io::stdout().write_all(path.as_bytes())` and `stdout().write_all(b"\n")` for exact output control
 - Do NOT use `println!("{path}")` -- it may add platform-specific line endings
 
@@ -52,7 +52,7 @@ Implement the `wt hook` subcommand with the exact stdin/stdout contract defined 
 - QA-H-001: assert stdout has exactly one newline (at the end)
 - Integration test: `echo '{"session_id":"test","cwd":"/tmp/repo","hook_event_name":"WorktreeCreate","name":"feature-x"}' | wt hook --stdin-format claude-code`
 - Integration test: capture stdout bytes, assert length == path.len() + 1
-- Integration test: capture stderr, assert it contains `[worktree-core]` prefix
+- Integration test: capture stderr, assert it contains `[iso-code]` prefix
 - Unit test: invalid JSON returns exit code 1 with stderr message
 - Unit test: missing `name` field returns exit code 1
 - Unit test: `name` field with special characters is passed through unmodified
