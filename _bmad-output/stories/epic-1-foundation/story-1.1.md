@@ -1,7 +1,7 @@
 # Story 1.1: Workspace Scaffolding
 
 ## Status
-Draft
+Done
 
 ## Epic
 Epic 1: Foundation
