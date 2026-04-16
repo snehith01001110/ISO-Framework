@@ -1124,17 +1124,28 @@ mod tests {
     /// Create a temporary git repo for testing.
     fn create_test_repo() -> tempfile::TempDir {
         let dir = tempfile::TempDir::new().unwrap();
-        Command::new("git")
-            .args(["init", "-b", "main"])
-            .current_dir(dir.path())
-            .output()
-            .unwrap();
-        Command::new("git")
-            .args(["commit", "--allow-empty", "-m", "initial"])
-            .current_dir(dir.path())
-            .output()
-            .unwrap();
+        run_git(dir.path(), &["init", "-b", "main"]);
+        // CI runners typically have no global user.name/user.email; configure
+        // locally so `git commit` below succeeds.
+        run_git(dir.path(), &["config", "user.email", "test@example.com"]);
+        run_git(dir.path(), &["config", "user.name", "Test"]);
+        run_git(dir.path(), &["commit", "--allow-empty", "-m", "initial"]);
         dir
+    }
+
+    /// Run a git command in `dir` and panic with stderr if it fails.
+    fn run_git(dir: &std::path::Path, args: &[&str]) {
+        let out = Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .unwrap_or_else(|e| panic!("failed to spawn git {args:?}: {e}"));
+        if !out.status.success() {
+            panic!(
+                "git {args:?} failed: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        }
     }
 
     #[test]
