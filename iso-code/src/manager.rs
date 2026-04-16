@@ -1125,7 +1125,7 @@ mod tests {
     fn create_test_repo() -> tempfile::TempDir {
         let dir = tempfile::TempDir::new().unwrap();
         Command::new("git")
-            .args(["init"])
+            .args(["init", "-b", "main"])
             .current_dir(dir.path())
             .output()
             .unwrap();
