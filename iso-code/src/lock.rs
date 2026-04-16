@@ -272,7 +272,7 @@ fn is_network_filesystem(path: &Path) -> bool {
                 }
             }
             if let Some((_, fs)) = best {
-                return network_types.iter().any(|t| fs == *t);
+                return network_types.contains(&fs);
             }
         }
     }
