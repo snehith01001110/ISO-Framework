@@ -145,9 +145,14 @@ fn run_hook(args: &[String]) {
     let path_str = handle.path.to_string_lossy();
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
-    out.write_all(path_str.as_bytes()).unwrap();
-    out.write_all(b"\n").unwrap();
-    out.flush().unwrap();
+    if let Err(e) = out
+        .write_all(path_str.as_bytes())
+        .and_then(|_| out.write_all(b"\n"))
+        .and_then(|_| out.flush())
+    {
+        eprintln!("[iso-code] Failed to write worktree path to stdout: {e}");
+        process::exit(1);
+    }
 }
 
 /// wt list
