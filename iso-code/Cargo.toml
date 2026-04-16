@@ -1,0 +1,36 @@
+[package]
+name = "iso-code"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Safe git worktree lifecycle management — prevents data loss bugs in AI coding agents"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/snehith/iso-code"
+documentation = "https://docs.rs/iso-code"
+readme = "README.md"
+keywords = ["git", "worktree", "ai", "mcp", "safety"]
+categories = ["development-tools", "development-tools::version-control"]
+
+[features]
+conflict-detection = []
+windows = ["junction"]
+
+[dependencies]
+fd-lock = "4"
+sysinfo = "0.37"
+uuid = { version = "1", features = ["v4"] }
+reflink-copy = "0.1"
+junction = { version = "1", optional = true }
+jwalk = "0.8"
+filesize = "0.2"
+dunce = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+sha2 = "0.10"
+libc = "0.2.185"
+
+[dev-dependencies]
+tempfile = "3.27.0"
