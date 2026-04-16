@@ -186,7 +186,7 @@ pub(crate) fn check_not_network_filesystem(path: &Path) -> Result<(), WorktreeEr
                     let mount_point = parts[1];
                     let fs_type = parts[2];
                     if path_str.starts_with(mount_point)
-                        && network_types.iter().any(|t| fs_type == *t)
+                        && network_types.contains(&fs_type)
                     {
                         return Err(WorktreeError::NetworkFilesystem {
                             mount_point: std::path::PathBuf::from(mount_point),
