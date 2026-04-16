@@ -1,0 +1,3 @@
+[workspace]
+members = ["iso-code", "iso-code-cli", "iso-code-mcp"]
+resolver = "2"

@@ -140,14 +140,15 @@ iso-code/          # Library crate
     error.rs            # WorktreeError enum
     git.rs              # All git CLI invocations
     guards.rs           # SafetyGuards implementations
-    lock.rs             # Hardened locking protocol
+    lock.rs             # Hardened locking protocol (host-OS flock + network-FS warnings)
     state.rs            # state.json read/write/migrate
     ports.rs            # Port lease model
+    util.rs             # Shared filesystem helpers (dir-size walk, capacity probe)
     platform/
-      mod.rs
-      macos.rs          # APFS clonefile, getattrlistbulk
-      linux.rs          # FICLONE ioctl, /proc/mounts
-      windows.rs        # NTFS junctions, LockFileEx, dunce paths
+      mod.rs            # Thin wrapper over `reflink-copy` for CoW file/dir copy
+      macos.rs          # Documentation stub — platform specifics delegated to crates
+      linux.rs          # Documentation stub — platform specifics delegated to crates
+      windows.rs        # Documentation stub — junction creation via `junction` crate (feature-gated)
   Cargo.toml
 
 iso-code-cli/      # Binary crate — `wt` command
@@ -160,6 +161,8 @@ iso-code-mcp/      # Binary crate — MCP server (stdio transport)
 ```
 
 All three crates share a workspace `Cargo.toml` at the repo root. The library crate has no binary targets. The CLI and MCP binaries depend on the library crate.
+
+**Platform-specific code.** The `platform/` module hosts the cross-platform copy-on-write wrapper around `reflink-copy`. Other platform-specific code is colocated with its consumer behind `#[cfg(target_os = "…")]` guards: `/proc/mounts` and `statfs` parsing in `lock.rs` and `guards.rs`; `proc_pidinfo` and `/proc/self/stat` process-start-time probes in `lock.rs`; `junction` crate bindings behind the `windows` feature flag.
 
 ---
 
@@ -196,7 +199,8 @@ pub struct WorktreeHandle {
     /// None if port allocation was not requested.
     pub port: Option<u16>,
     /// Stable UUID for this worktree's entire lifetime.
-    /// Used in multi-factor lock identity and port lease keying.
+    /// Used as a correlation handle in lock-file diagnostics and as part
+    /// of port lease keying.
     pub session_uuid: String,
 }
 ```
@@ -1049,15 +1053,15 @@ fn check_not_nested_worktree(
 
 ## 9. Locking Protocol
 
-### 9.1 Why PID-Only Locks Fail
+### 9.1 Mutual Exclusion Model
 
-On Linux, PIDs cycle within ~32,768 increments. In container environments with PID namespacing, a new process can reuse PID 1 within seconds of the previous process dying. A `kill(pid, 0)` check on a reused PID returns success even though the original lock holder is dead.
+`state.json` is coordinated by an OS-level advisory lock on a sidecar file `state.lock`. The lock uses `flock(LOCK_EX | LOCK_NB)` on Unix and `LockFileEx` on Windows, accessed via the `fd-lock` crate. The lock is bound to the file descriptor returned by `open()`; when the holding process exits, the kernel releases the lock automatically, so a dead lock holder cannot block new acquirers.
 
-This library uses a **four-factor check** (PID + process start time + UUID + hostname) modeled after PostgreSQL's `postmaster.pid`. A live process with the same PID but a different start time means the PID was reused and the lock is stale.
+The lock file is created on first use and never unlinked. Because `flock` is keyed on the inode behind the descriptor, acquirers must all race against the same inode: unlinking and recreating `state.lock` would permit two processes to hold locks on different inodes concurrently.
 
 ### 9.2 Lock File Format
 
-The lock file (`state.lock`) contains a single JSON record:
+`state.lock` contains a single JSON record written through the same descriptor that holds the lock. The payload is informational — it identifies the current holder for operators and is not consulted for correctness decisions.
 
 ```json
 {
@@ -1069,41 +1073,19 @@ The lock file (`state.lock`) contains a single JSON record:
 }
 ```
 
-- `pid` — process ID of the lock holder
-- `start_time` — epoch seconds of process start time, from `sysinfo::Process::start_time()`. Linux: `/proc/<pid>/stat` field 22. macOS: `proc_pidinfo`. Windows: `GetProcessTimes`.
-- `uuid` — UUID v4 generated at lock acquisition time. Used as correlation handle in logs.
-- `hostname` — for diagnosing multi-container environments sharing a filesystem.
-- `acquired_at` — human-readable acquisition time for debugging.
+| Field | Description |
+|---|---|
+| `pid` | Process ID of the lock holder. |
+| `start_time` | Epoch seconds of process start time. Linux: `/proc/<pid>/stat` field 22. macOS: `proc_pidinfo`. Windows: `GetProcessTimes`. |
+| `uuid` | UUID v4 generated at acquisition time; correlation handle in logs. |
+| `hostname` | Identifier for the machine holding the lock; useful when containers share a filesystem. |
+| `acquired_at` | RFC 3339 acquisition timestamp. |
 
-### 9.3 Stale Detection Logic (Four-Factor Check)
+Readers must tolerate truncated or empty payloads: a process killed mid-write leaves a partial record, which is overwritten on the next acquisition.
 
-```
-1. Open state.lock.
-   If absent → no lock held → proceed to acquisition.
+### 9.3 Full Jitter Backoff
 
-2. Deserialize JSON record.
-   If parse fails → lock file is corrupt (crashed mid-write).
-   Log WARNING: "Stale lock detected: corrupt JSON, overwriting".
-   Delete state.lock → proceed to acquisition.
-
-3. Check kill(pid, 0).
-   If ESRCH (no such process) → process is dead.
-   Log WARNING: "Stale lock detected: PID {pid} no longer exists".
-   Delete state.lock → proceed to acquisition.
-   If other error → treat as live (conservative) → enter retry loop.
-
-4. If process is alive, verify start_time via sysinfo.
-   If start_time != lock_record.start_time:
-     PID was reused.
-     Log WARNING: "Stale lock detected: PID reused (start time mismatch)".
-     Delete state.lock → proceed to acquisition.
-   If start_time matches AND uuid differs from current session:
-     Lock is genuinely held → enter Full Jitter retry loop.
-```
-
-### 9.4 Full Jitter Backoff
-
-Formula (from AWS analysis of 100 concurrent lock contenders):
+On contention, the acquirer retries with full-jitter exponential backoff:
 
 ```
 sleep_ms = random(0, min(cap_ms, base_ms × 2^attempt))
@@ -1112,7 +1094,7 @@ sleep_ms = random(0, min(cap_ms, base_ms × 2^attempt))
 Parameters:
 - `base_ms` = 10
 - `cap_ms` = 2000
-- `max_attempts` = 15 (~30s total worst case)
+- `max_attempts` = 15 (~30s worst-case total)
 
 ```rust
 fn acquire_lock_with_backoff(
@@ -1122,12 +1104,6 @@ fn acquire_lock_with_backoff(
     let started = std::time::Instant::now();
     let mut attempt = 0u32;
     loop {
-        if lock_path.exists() {
-            match check_stale(lock_path) {
-                StaleResult::Stale => { std::fs::remove_file(lock_path)?; }
-                StaleResult::Live  => { /* fall through to retry */ }
-            }
-        }
         match try_acquire(lock_path) {
             Ok(guard) => {
                 write_lock_record(lock_path)?;
@@ -1150,41 +1126,39 @@ fn acquire_lock_with_backoff(
 }
 ```
 
-### 9.5 Exact Lock Acquisition Sequence
+### 9.4 Acquisition Sequence
 
-Do not reorder these steps:
-
-1. Run four-factor stale detection on `state.lock`. Delete if stale.
-2. Attempt non-blocking exclusive advisory lock via `fd-lock` crate. On failure, enter Full Jitter retry loop. On timeout, return `WorktreeError::StateLockContention`.
-3. Write multi-factor JSON record to `state.lock` contents.
+1. Open `state.lock` with `create(true).read(true).write(true)`; the file is created if absent.
+2. Acquire a non-blocking exclusive advisory lock on the descriptor via `fd-lock`. On contention, enter the Full Jitter retry loop; on timeout return `WorktreeError::StateLockContention`.
+3. Rewrite the JSON payload through the same descriptor: `set_len(0)` → `seek(SeekFrom::Start(0))` → `write_all(...)`.
 4. Read `state.json`.
-5. Apply mutation in memory.
-6. Write new content to `state.json.tmp` (same directory).
-7. `fsync()` the temp file descriptor.
-8. `rename(state.json.tmp → state.json)` — atomic on POSIX same-filesystem; also atomic on Windows within the same volume.
-9. Drop lock guard (RAII: OS releases `fd-lock` automatically).
+5. Apply the mutation in memory.
+6. Write the new contents to `state.json.tmp` in the same directory.
+7. `fsync` the temp file.
+8. `rename(state.json.tmp → state.json)`. Atomic on POSIX when both paths share a filesystem; atomic on Windows within the same volume.
+9. Drop the lock guard; closing the descriptor releases the kernel lock.
 
-**Critical invariants:**
-- **Never delete `state.lock` after releasing.** Leave it in place; the next acquisition overwrites the record. Deleting it introduces a race.
-- **Never hold `state.lock` across `git worktree add`.** The lock scope is ONLY around the `state.json` read-modify-write cycle. `git worktree add` can take seconds; holding the lock that long blocks all other agents.
+### 9.5 Invariants
+
+- `state.lock` is never unlinked. Unlinking defeats `flock`'s inode binding (§9.1).
+- The lock is held only across the `state.json` read–modify–write cycle. It is not held across `git worktree add`, `git worktree remove`, or any other operation that may block on I/O or network.
 
 ### 9.6 Network Filesystem Degradation
 
-`flock()` is unreliable on NFS (was a no-op before Linux kernel 5.5 in some configurations). Detection:
+`flock()` is unreliable on NFS; on some configurations prior to Linux 5.5 it is a no-op. When `state.lock` resides on a network filesystem:
 
 ```rust
 fn is_network_filesystem(path: &Path) -> bool {
-    // Linux: check /proc/mounts for nfs, nfs4, cifs, smbfs
-    // macOS: statfs() f_fstypename starts with "nfs", "afp", or "smbfs"
+    // Linux: parse /proc/mounts for nfs, nfs4, cifs, smbfs
+    // macOS: statfs() f_fstypename matches nfs, afp, smbfs, cifs, webdav
     // Windows: GetDriveTypeW() returns DRIVE_REMOTE
 }
 ```
 
-If network filesystem detected:
-- Skip advisory lock acquisition.
-- Log `WARNING: "Network filesystem detected — advisory locking skipped. Using atomic rename only."`
-- Still perform `rename(tmp → state.json)` for atomicity.
-- Concurrent access guarantees are reduced; document this in error messages.
+Behavior:
+- A warning is logged at acquisition time: `"state directory appears to be on a network filesystem; advisory locking may be unreliable"`.
+- Acquisition still attempts `flock`; concurrent-access guarantees are reduced.
+- Atomic `rename(tmp → state.json)` remains the source of truth for state durability.
 
 ---
 
@@ -1192,15 +1166,18 @@ If network filesystem detected:
 
 ### 10.1 File Locations
 
-| Data | Location | Notes |
-|---|---|---|
-| Worktree metadata + port leases | `<repo>/.git/iso-code/state.json` | Safe from `git gc` — custom dirs in `.git/` are never pruned |
-| Lock file | `<repo>/.git/iso-code/state.lock` | Adjacent to state for atomic coordination |
-| User preferences | `$XDG_CONFIG_HOME/iso-code/config.toml` | macOS: `~/Library/Application Support/iso-code/` |
-| Cache | `$XDG_CACHE_HOME/iso-code/` | Disposable |
-| Logs | `$XDG_STATE_HOME/iso-code/` | Falls back to `$XDG_CACHE_HOME` on macOS/Windows |
+| Data | Location | Milestone | Notes |
+|---|---|---|---|
+| Worktree metadata + port leases | `<repo>/.git/iso-code/state.json` | M1 (Epic 1) | Safe from `git gc` — custom dirs in `.git/` are never pruned |
+| Lock file | `<repo>/.git/iso-code/state.lock` | M1 (Epic 1) | Adjacent to state for atomic coordination |
+| User preferences | `$XDG_CONFIG_HOME/iso-code/config.toml` | M2 (Epic 2) | macOS: `~/Library/Application Support/iso-code/`. Consumed by `wt create --setup` adapter config loader (ISO-2.4). |
+| Project-local preferences | `<repo>/.iso-code.toml` | M2 (Epic 2) | Overrides user-level config for adapter selection. |
+| Cache | `$XDG_CACHE_HOME/iso-code/` | Reserved | Not written by any M1 code path. |
+| Logs | `$XDG_STATE_HOME/iso-code/` | Reserved | All M1 diagnostics go to stderr (`eprintln!`). File logging deferred. |
 
-`ISO_CODE_HOME` environment variable overrides all computed paths. When set, all state files go under `$ISO_CODE_HOME/`. Use the `directories` crate v6.0.0 via `ProjectDirs::from("", "", "iso-code")`.
+`ISO_CODE_HOME` overrides the state-file location (rows 1 and 2). When set, `state.json` and `state.lock` go under `$ISO_CODE_HOME/`.
+
+State-file paths are resolved by a two-step rule: `ISO_CODE_HOME` when set, otherwise `<repo>/.git/iso-code/`. The user and project-local preference paths (rows 3–4) are consumed by `wt create --setup` (ISO-2.4) and depend on the `directories` crate (§14).
 
 ### 10.2 state.json Schema (v2)
 
@@ -1622,13 +1599,13 @@ Reference accepted RFCs in code: `// DESIGN DECISION (RFC-003): Using RefCell he
 | Crate | Version | Justification |
 |---|---|---|
 | `fd-lock` | 4 | Cross-platform advisory file locking. `flock()` on Unix, `LockFileEx` on Windows. RAII guards auto-release on drop. 33M downloads. |
-| `sysinfo` | 0.37 | Cross-platform process `start_time` for PID reuse detection. Linux: `/proc/<pid>/stat` field 22. macOS: `proc_pidinfo`. Windows: `GetProcessTimes`. |
-| `uuid` | 1 (v4 feature) | UUID v4 generation for multi-factor lock identity and session tracking. |
+| `sysinfo` | 0.37 | Cross-platform disk enumeration (free-space and capacity probes on the worktree's mount point). Also used to populate the `start_time` diagnostic field in `state.lock`. |
+| `uuid` | 1 (v4 feature) | UUID v4 generation for session tracking, port lease keying, and lock-file diagnostics. |
 | `reflink-copy` | 0.1 | CoW file operations. `clonefile()` on macOS, `FICLONE` on Linux, `FSCTL_DUPLICATE_EXTENTS_TO_FILE` on Windows. Falls back to `std::fs::copy()` when unsupported. |
 | `junction` | 1 | Windows NTFS junction creation without admin privileges. |
 | `jwalk` | 0.8 | Rayon-based parallel directory walking. <200ms for 50K files. Use `parallelism(RayonNewPool(num_cpus))` + `preload_metadata(true)`. |
 | `filesize` | 0.2 | Cross-platform disk usage. `st_blocks * 512` on Unix, `GetCompressedFileSizeW()` on Windows. |
-| `directories` | 6 | XDG-compliant platform-appropriate paths via `ProjectDirs::from("", "", "iso-code")`. |
+| `directories` | 6 | XDG-compliant platform-appropriate paths via `ProjectDirs::from("", "", "iso-code")`. Required by the user-configuration loader in `wt create --setup` (ISO-2.4). Not a dependency of the M1 core. |
 | `dunce` | 1 | Strips `\\?\` prefix when passing paths to external tools on Windows. |
 | `thiserror` | 2 | Structured error types with `#[error]` derive. |
 | `serde` + `serde_json` | 1 | `state.json` serialization with `#[serde(flatten)]` for forward compatibility. |
@@ -1656,7 +1633,7 @@ Reference accepted RFCs in code: `// DESIGN DECISION (RFC-003): Using RefCell he
 - `Manager::attach()`.
 - `state.json` v2 schema, locking protocol, migration from v1.
 - Full Jitter backoff.
-- Multi-factor lock identity (PID + `start_time` + UUID + hostname).
+- Advisory file locking on `state.lock` with a JSON diagnostic payload (§9).
 - Port lease model.
 - `stale_worktrees` eviction on reconciliation (not silent drop).
 - `ReflinkMode` tristate in `CreateOptions`.
@@ -1738,14 +1715,13 @@ Reference accepted RFCs in code: `// DESIGN DECISION (RFC-003): Using RefCell he
 |---|---|---|
 | git command timeout | Process exceeds 30s timeout | Kill process; retry once with exponential delay; return `GitCommandFailed` with diagnostic |
 | `state.json` corrupt | JSON parse fails at startup | Rebuild from `git worktree list` output; log `WARNING: State rebuilt from git` |
-| `state.lock` stale | Four-factor stale check (Section 9.3) | Delete stale lock; log warning with recovered PID and hostname; acquire fresh lock |
+| Dead lock holder | `flock` is released by the kernel on process exit (§9.1) | Next acquisition succeeds without intervention |
 | Lock contention timeout | `fd-lock` returns after 15 Full Jitter attempts (~30s) | Return `StateLockContention`; caller must retry or surface to user |
 | Worktree path vanished from disk | `stat()` fails | Move to `stale_worktrees`; offer `wt gc` cleanup |
 | Branch deleted under active worktree | `git rev-parse refs/heads/<branch>` fails | Mark `WorktreeState::Broken`; warn user; block further operations on this handle |
 | git not installed | `git --version` fails at `Manager::new()` | Return `GitNotFound` |
 | Unmerged commits | Five-step decision tree (Section 8.2.1) | Return `UnmergedCommits`; user must pass `--force` or merge first |
 | git-crypt files encrypted post-create | Magic header byte check (Section 8.3) | Auto-remove worktree via `git worktree remove --force`; return `GitCryptLocked` |
-| PID reuse in stale lock | `start_time` mismatch via `sysinfo` | Delete stale lock; log warning; acquire fresh lock |
 | Stale port lease | `kill(pid, 0)` returns ESRCH AND `expires_at < now` | Release port; re-assign on next `create()` |
 | `ReflinkMode::Required` on ext4 | `EOPNOTSUPP` from `FICLONE` ioctl | Return `ReflinkNotSupported` immediately; no fallback |
 | `git worktree add` partial failure | Non-zero exit from git | Run `rm -rf <path>`; return `GitCommandFailed` |

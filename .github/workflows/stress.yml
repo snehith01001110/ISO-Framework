@@ -1,0 +1,35 @@
+name: Stress
+
+on:
+  # Nightly run — catches regressions in the M1 ship-gate invariants
+  # (zero data loss across 100 create/delete cycles, 1000-orphan GC).
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC daily
+  # On every release tag — block a release if the stress suite fails.
+  push:
+    tags: ["v*"]
+  # Manual trigger for on-demand runs from the Actions tab.
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  stress:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build tests
+        run: cargo test --workspace --no-run
+
+      - name: Run stress suite (--ignored)
+        run: cargo test --workspace -- --ignored --nocapture --test-threads=1
