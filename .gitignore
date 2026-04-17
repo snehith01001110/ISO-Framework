@@ -2,3 +2,5 @@ target/
 *.swp
 .DS_Store
 _bmad-output/
+ISO_PRD-*.md
+AGENTS.md
