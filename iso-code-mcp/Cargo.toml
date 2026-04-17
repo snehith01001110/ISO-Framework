@@ -11,7 +11,7 @@ homepage = "https://isocode.dev"
 documentation = "https://docs.rs/iso-code-mcp"
 readme = "README.md"
 keywords = ["git", "worktree", "mcp", "ai"]
-categories = ["development-tools", "development-tools::version-control"]
+categories = ["development-tools", "command-line-utilities"]
 
 [dependencies]
 iso-code = { version = "0.1.0", path = "../iso-code" }
