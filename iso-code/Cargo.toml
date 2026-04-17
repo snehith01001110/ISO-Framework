@@ -12,7 +12,7 @@ documentation = "https://docs.rs/iso-code"
 readme = "README.md"
 exclude = ["tests/stress_*"]
 keywords = ["git", "worktree", "ai", "mcp", "safety"]
-categories = ["development-tools", "development-tools::version-control"]
+categories = ["development-tools", "filesystem"]
 
 [features]
 conflict-detection = []
