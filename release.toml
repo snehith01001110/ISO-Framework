@@ -1,0 +1,23 @@
+# cargo-release config — workspace defaults.
+# Run from the workspace root: `cargo release <level> --execute`
+# Levels: patch | minor | major | rc | beta | alpha | <explicit version>
+
+# All workspace crates move in lockstep on a single version.
+shared-version = true
+
+# One commit + one tag for the whole workspace, instead of one per crate.
+consolidate-commits = true
+tag-name = "v{{version}}"
+pre-release-commit-message = "chore: release v{{version}}"
+tag-message = "Release v{{version}}"
+
+# Only release from main.
+allow-branch = ["main"]
+
+# Bump path-dep `version = "x.y.z"` pins in dependent crates automatically.
+dependent-version = "upgrade"
+
+# Push the commit + tag after publishing. Disable with --no-push if you
+# want to inspect first.
+push = true
+publish = true

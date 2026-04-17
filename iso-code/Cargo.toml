@@ -37,3 +37,5 @@ libc = "0.2.185"
 
 [dev-dependencies]
 tempfile = "3.27.0"
+proptest = "1"
+assert_matches = "1"

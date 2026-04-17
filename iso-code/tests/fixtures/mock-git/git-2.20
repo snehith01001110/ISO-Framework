@@ -1,0 +1,7 @@
+#!/bin/sh
+# Mock git 2.20 — minimum supported version.
+if [ "$1" = "--version" ]; then
+    echo "git version 2.20.0"
+    exit 0
+fi
+exec /usr/bin/env -u PATH PATH="$MOCK_REAL_PATH" git "$@"

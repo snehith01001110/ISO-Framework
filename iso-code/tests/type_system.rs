@@ -1,3 +1,10 @@
+//! Type-system smoke tests.
+//!
+//! No QA-* IDs map here directly — these tests guard the PRD Section 4
+//! public types (WorktreeHandle, WorktreeState, Config, GcOptions, etc.)
+//! against accidental API-level regressions. They're a prerequisite for
+//! every other test group in `_bmad-output/qa/test-strategy.md`.
+
 use iso_code::*;
 use std::path::PathBuf;
 

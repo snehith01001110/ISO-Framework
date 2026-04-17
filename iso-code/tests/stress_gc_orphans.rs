@@ -6,37 +6,16 @@
 //! cargo test --test stress_gc_orphans -- --ignored
 //! ```
 
+mod common;
+
 use std::process::Command;
 
 use iso_code::{Config, CreateOptions, DeleteOptions, GcOptions, Manager};
 
-fn create_test_repo() -> tempfile::TempDir {
-    let dir = tempfile::TempDir::new().unwrap();
-    run_git(dir.path(), &["init", "-b", "main"]);
-    // CI runners typically have no global user.name/user.email; configure
-    // locally so `git commit` below succeeds.
-    run_git(dir.path(), &["config", "user.email", "test@example.com"]);
-    run_git(dir.path(), &["config", "user.name", "Test"]);
-    run_git(dir.path(), &["commit", "--allow-empty", "-m", "initial"]);
-    dir
-}
+use common::create_test_repo;
 
-fn run_git(dir: &std::path::Path, args: &[&str]) {
-    let out = Command::new("git")
-        .args(args)
-        .current_dir(dir)
-        .output()
-        .unwrap_or_else(|e| panic!("failed to spawn git {args:?}: {e}"));
-    if !out.status.success() {
-        panic!(
-            "git {args:?} failed: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-    }
-}
-
-/// GC must correctly handle a mix of fresh, stale, and locked worktrees. This
-/// scaled-down variant (< 10 worktrees) runs under the default `cargo test`.
+/// QA-S-001 (companion): GC must correctly handle a mix of fresh and locked
+/// worktrees. Scaled-down variant that runs under the default `cargo test`.
 #[test]
 fn stress_gc_small_scale() {
     let repo = create_test_repo();
@@ -94,8 +73,9 @@ fn stress_gc_small_scale() {
     }
 }
 
-/// Large-scale orphan GC. Creates 1,000 worktrees via the `git` CLI
-/// (bypassing the manager) and asserts that `gc()` completes within 60s.
+/// QA-S-001 (companion): large-scale orphan GC. Creates 1,000 worktrees via
+/// the `git` CLI (bypassing the manager) and asserts that `gc()` completes
+/// within 60s. Ship criterion for Milestone 1.
 #[test]
 #[ignore]
 fn stress_gc_1000_orphans() {
@@ -144,7 +124,8 @@ fn stress_gc_1000_orphans() {
     let _ = report;
 }
 
-/// Verify locked worktrees in a GC batch are never touched.
+/// QA-I-005 (Cursor integration target) companion: locked worktrees in a
+/// GC batch are never touched, regardless of `force`. Appendix A rule 13.
 #[test]
 fn stress_gc_locked_worktrees_untouched() {
     let repo = create_test_repo();

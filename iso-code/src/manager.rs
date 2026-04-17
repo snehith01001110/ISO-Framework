@@ -1222,6 +1222,8 @@ mod tests {
         let _ = git::worktree_remove_force(&mgr.repo_root, &wt_path);
     }
 
+    /// QA-R-001 companion (inline): unmerged commits without `force` is
+    /// rejected with `UnmergedCommits`.
     #[test]
     fn test_delete_with_unmerged_commits_returns_error() {
         let repo = create_test_repo();
@@ -1304,6 +1306,8 @@ mod tests {
         assert!(!wt_path.exists());
     }
 
+    /// QA-I-005 companion (inline): a locked worktree is refused by `delete()`
+    /// unless `force_locked` is set.
     #[test]
     fn test_delete_locked_worktree_returns_error() {
         let repo = create_test_repo();
@@ -1478,6 +1482,8 @@ mod tests {
         mgr.delete(&handle, DeleteOptions { force: true, ..Default::default() }).unwrap();
     }
 
+    /// QA-I-005 / PRD Appendix A rule 13 (inline): locked worktrees are
+    /// exempt from GC regardless of `force`.
     #[test]
     fn test_gc_locked_worktree_never_touched() {
         let repo = create_test_repo();

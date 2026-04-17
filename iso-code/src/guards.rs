@@ -683,11 +683,14 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    /// QA-G-003: under the max_worktrees limit, no error.
     #[test]
     fn test_check_worktree_count_under_limit() {
         assert!(check_worktree_count(5, 20).is_ok());
     }
 
+    /// QA-G-003: at the max_worktrees limit, the 21st create is refused with
+    /// RateLimitExceeded { current, max }.
     #[test]
     fn test_check_worktree_count_at_limit() {
         let result = check_worktree_count(20, 20);
@@ -698,12 +701,14 @@ mod tests {
         ));
     }
 
+    /// QA-G-004: nonexistent path passes.
     #[test]
     fn test_check_path_not_exists_ok() {
         let path = PathBuf::from("/tmp/definitely_not_exists_iso_test_1234567890");
         assert!(check_path_not_exists(&path).is_ok());
     }
 
+    /// QA-G-004: pre-existing directory fails with WorktreePathExists.
     #[test]
     fn test_check_path_not_exists_fails() {
         let path = PathBuf::from("/tmp");
@@ -712,12 +717,14 @@ mod tests {
         assert!(matches!(result.unwrap_err(), WorktreeError::WorktreePathExists(_)));
     }
 
+    /// QA-G-005: empty worktree list → nested check trivially passes.
     #[test]
     fn test_check_not_nested_no_worktrees() {
         let result = check_not_nested_worktree(Path::new("/tmp/test"), Path::new("/some/repo"), &[]);
         assert!(result.is_ok());
     }
 
+    /// QA-G-005: new worktree inside an existing one is rejected.
     #[test]
     fn test_check_not_nested_candidate_inside_existing() {
         // Use a real existing directory as the "existing worktree"
@@ -745,6 +752,7 @@ mod tests {
         ));
     }
 
+    /// QA-G-008: bare-repo detection returns Ok(false) for a normal repo.
     #[test]
     fn test_check_bare_repo_not_bare() {
         // Run against this project's repo — it's not bare
@@ -753,6 +761,7 @@ mod tests {
         assert!(!result.unwrap());
     }
 
+    /// QA-G-009: submodule detection returns Ok(false) when not in a submodule.
     #[test]
     fn test_check_submodule_not_submodule() {
         // This project is not a submodule
@@ -761,6 +770,7 @@ mod tests {
         assert!(!result.unwrap());
     }
 
+    /// QA-G-002: reasonable free-space request passes.
     #[test]
     fn test_check_disk_space_permissive() {
         // Should pass for reasonable amounts on /tmp
@@ -768,6 +778,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    /// QA-G-002: absurdly large free-space request fails with DiskSpaceLow.
     #[test]
     fn test_check_disk_space_huge_requirement() {
         // 999 TB requirement should fail
@@ -776,6 +787,7 @@ mod tests {
         assert!(matches!(result.unwrap_err(), WorktreeError::DiskSpaceLow { .. }));
     }
 
+    /// QA-G-012: repository without git-crypt returns NotUsed.
     #[test]
     fn test_check_git_crypt_not_used() {
         // This repo doesn't use git-crypt
@@ -828,12 +840,14 @@ mod tests {
         assert!(matches!(result.unwrap_err(), WorktreeError::WorktreeLocked { .. }));
     }
 
+    /// QA-G-010: with no max_bytes and no threshold, the aggregate-disk check passes trivially.
     #[test]
     fn test_check_total_disk_usage_no_limit() {
         let result = check_total_disk_usage(&[], Path::new("/tmp"), None, None);
         assert!(result.is_ok());
     }
 
+    /// QA-G-001: a branch that isn't checked out anywhere passes.
     #[test]
     fn test_check_branch_not_checked_out_ok() {
         // A branch that definitely doesn't exist

@@ -1,0 +1,7 @@
+#!/bin/sh
+# Mock git 2.30 — adds worktree repair.
+if [ "$1" = "--version" ]; then
+    echo "git version 2.30.0"
+    exit 0
+fi
+exec /usr/bin/env -u PATH PATH="$MOCK_REAL_PATH" git "$@"
