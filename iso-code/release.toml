@@ -3,6 +3,6 @@
 
 pre-release-replacements = [
   { file = "../CHANGELOG.md", search = "## \\[Unreleased\\]", replace = "## [Unreleased]\n\n## [{{version}}] - {{date}}", exactly = 1 },
-  { file = "../CHANGELOG.md", search = "v{{prev_version}}\\.\\.\\.HEAD", replace = "v{{version}}...HEAD", exactly = 1 },
-  { file = "../CHANGELOG.md", search = "\\[{{prev_version}}\\]:", replace = "[{{version}}]: https://github.com/snehith01001110/ISO-Framework/releases/tag/v{{version}}\n[{{prev_version}}]:", exactly = 1 },
+  { file = "../CHANGELOG.md", search = "compare/v[0-9]+\\.[0-9]+\\.[0-9]+\\.\\.\\.HEAD", replace = "compare/v{{version}}...HEAD", exactly = 1 },
+  { file = "../CHANGELOG.md", search = "(?m)^(\\[Unreleased\\]: .*)$", replace = "$1\n[{{version}}]: https://github.com/snehith01001110/ISO-Framework/releases/tag/v{{version}}", exactly = 1 },
 ]
