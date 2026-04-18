@@ -31,6 +31,41 @@ cargo release minor --execute
 Level can be `patch`, `minor`, `major`, `rc`, `beta`, `alpha`, or an explicit
 version like `1.0.0`.
 
+## Dry-running a prerelease
+
+Prereleases (`alpha`, `beta`, `rc`) follow the same flow as stable releases —
+omit `--execute` to see exactly what would happen without touching git,
+crates.io, or the remote.
+
+```sh
+# From the workspace root. All three commands are dry runs.
+cargo release alpha        # e.g. 0.3.0 -> 0.3.1-alpha.0
+cargo release beta         # e.g. 0.3.1-alpha.0 -> 0.3.1-beta.0
+cargo release rc           # e.g. 0.3.1-beta.0 -> 0.3.1-rc.0
+
+# Dry-run an explicit prerelease version.
+cargo release 0.4.0-rc.1
+```
+
+The output shows the version bumps across all three crates, the rewritten
+`CHANGELOG.md` block, the commit + tag that would be created, and the publish
+order. Nothing is written until you re-run with `--execute`.
+
+Useful flags while iterating on a dry run:
+
+- `--no-push` — run end-to-end locally but skip `git push`. Pair with
+  `--execute` to inspect the commit and tag before sharing them.
+- `--no-publish` — skip `cargo publish` (useful when testing changelog or
+  version bump logic without burning a crates.io version).
+- `-p iso-code-cli` — scope to a single crate (see "Releasing a single crate"
+  below for caveats).
+
+Once the dry run looks right, re-run the same command with `--execute`:
+
+```sh
+cargo release rc --execute
+```
+
 ## What happens in one command
 
 1. **Version bump.** All three crates' `version = "x.y.z"` fields are bumped to
