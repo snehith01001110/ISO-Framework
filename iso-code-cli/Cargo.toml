@@ -1,6 +1,6 @@
 [package]
 name = "iso-code-cli"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.75"
 description = "CLI binary (wt) for iso-code worktree management"
@@ -18,7 +18,7 @@ name = "wt"
 path = "src/main.rs"
 
 [dependencies]
-iso-code = { version = "0.1.0", path = "../iso-code" }
+iso-code = { version = "0.1.1", path = "../iso-code" }
 dunce = "1.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"

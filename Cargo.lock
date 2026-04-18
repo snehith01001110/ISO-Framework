@@ -407,7 +407,7 @@ dependencies = [
 
 [[package]]
 name = "iso-code"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "assert_matches",
  "chrono",
@@ -431,7 +431,7 @@ dependencies = [
 
 [[package]]
 name = "iso-code-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "assert_cmd",
  "dunce",
@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "iso-code-mcp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "assert_cmd",
  "dunce",

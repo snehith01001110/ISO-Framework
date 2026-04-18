@@ -1,6 +1,6 @@
 [package]
 name = "iso-code"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.75"
 description = "Safe git worktree lifecycle management — prevents data loss bugs in AI coding agents"

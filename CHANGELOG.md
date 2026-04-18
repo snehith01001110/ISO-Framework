@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-18
+
 ## [0.1.0] - 2026-04-16
 
 ### Added
@@ -23,5 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `iso-code-mcp` stdio JSON-RPC 2.0 server with annotated MCP tool definitions.
 - CI with clippy enforcement and nightly stress test gates.
 
-[Unreleased]: https://github.com/snehith01001110/ISO-Framework/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/snehith01001110/ISO-Framework/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/snehith01001110/ISO-Framework/releases/tag/v0.1.1
 [0.1.0]: https://github.com/snehith01001110/ISO-Framework/releases/tag/v0.1.0

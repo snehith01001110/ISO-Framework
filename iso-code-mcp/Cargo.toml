@@ -1,6 +1,6 @@
 [package]
 name = "iso-code-mcp"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.75"
 description = "MCP server binary for iso-code worktree management"
@@ -14,7 +14,7 @@ keywords = ["git", "worktree", "mcp", "ai"]
 categories = ["development-tools", "command-line-utilities"]
 
 [dependencies]
-iso-code = { version = "0.1.0", path = "../iso-code" }
+iso-code = { version = "0.1.1", path = "../iso-code" }
 dunce = "1.0"
 jwalk = "0.8"
 serde = { version = "1.0.228", features = ["derive"] }
