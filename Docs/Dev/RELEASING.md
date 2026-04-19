@@ -81,6 +81,11 @@ cargo release rc --execute
 5. **Publish in dependency order.** `iso-code` is published first (since the
    other two depend on it), followed by `iso-code-cli` and `iso-code-mcp`.
 6. **Push.** The commit and tag are pushed to `origin/main`.
+7. **GitHub Release.** The `vX.Y.Z` tag push triggers
+   `.github/workflows/release.yml`, which creates a matching GitHub Release
+   with auto-generated notes (commits and PRs since the previous tag). No
+   manual step required — check the Releases page after `cargo release`
+   finishes.
 
 ## Day-to-day workflow
 
@@ -114,6 +119,22 @@ at a published version on crates.io.
   the primary crate).
 - `iso-code-cli/release.toml`, `iso-code-mcp/release.toml` — set `tag = false`
   so only one workspace-wide tag is created.
+- `.github/workflows/release.yml` — triggers on any `v*` tag push and creates
+  a GitHub Release via `softprops/action-gh-release` with
+  `generate_release_notes: true`. Requires `contents: write` permission.
+
+## Backfilling a GitHub Release
+
+The release workflow only fires on *new* tag pushes, so any tag that existed
+before the workflow was added has a crates.io publish but no GitHub Release.
+To create one after the fact:
+
+```sh
+gh release create vX.Y.Z --generate-notes
+```
+
+This is a one-shot per missing tag — the workflow handles every subsequent
+release automatically.
 
 ## Recovering from a failed release
 
