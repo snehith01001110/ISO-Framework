@@ -54,10 +54,7 @@ impl Manager {
     ///   3. Ensure `.git/iso-code/` exists and initialize `state.json` on first use.
     ///   4. Scan for orphaned worktrees (non-fatal; emits warnings only).
     ///   5. Sweep expired port leases.
-    pub fn new(
-        repo_root: impl AsRef<Path>,
-        config: Config,
-    ) -> Result<Self, WorktreeError> {
+    pub fn new(repo_root: impl AsRef<Path>, config: Config) -> Result<Self, WorktreeError> {
         Self::with_adapter(repo_root, config, None)
     }
 
@@ -142,7 +139,8 @@ impl Manager {
 
     /// Record a git command failure — increments the failure counter.
     fn record_git_failure(&self) {
-        self.consecutive_git_failures.set(self.consecutive_git_failures.get() + 1);
+        self.consecutive_git_failures
+            .set(self.consecutive_git_failures.get() + 1);
     }
 
     /// Return the detected git capabilities.
@@ -187,10 +185,7 @@ impl Manager {
         let mut git_worktrees = self.list_raw()?;
 
         // Try to reconcile with state — if state read fails, just return git list
-        let state = match state::read_state(
-            &self.repo_root,
-            self.config.home_override.as_deref(),
-        ) {
+        let state = match state::read_state(&self.repo_root, self.config.home_override.as_deref()) {
             Ok(s) => s,
             Err(_) => return Ok(git_worktrees),
         };
@@ -217,59 +212,54 @@ impl Manager {
         let now = chrono::Utc::now();
 
         if let Err(e) = self.with_state(|s| {
-                // Move orphaned state entries to stale.
-                // Skip Pending/Creating entries: a concurrent Manager::create()
-                // may have written the entry but not yet completed
-                // `git worktree add`, so the branch legitimately isn't in git's
-                // registry yet. Evicting it here races the create() and leaves
-                // state.json pointing at the wrong bucket.
-                let orphaned_keys: Vec<String> = s
-                    .active_worktrees
-                    .iter()
-                    .filter(|&(k, v)| {
-                        !git_branches.contains(k)
-                            && !matches!(
-                                v.state,
-                                WorktreeState::Creating | WorktreeState::Pending
-                            )
-                    })
-                    .map(|(k, _)| k.clone())
-                    .collect();
+            // Move orphaned state entries to stale.
+            // Skip Pending/Creating entries: a concurrent Manager::create()
+            // may have written the entry but not yet completed
+            // `git worktree add`, so the branch legitimately isn't in git's
+            // registry yet. Evicting it here races the create() and leaves
+            // state.json pointing at the wrong bucket.
+            let orphaned_keys: Vec<String> = s
+                .active_worktrees
+                .iter()
+                .filter(|&(k, v)| {
+                    !git_branches.contains(k)
+                        && !matches!(v.state, WorktreeState::Creating | WorktreeState::Pending)
+                })
+                .map(|(k, _)| k.clone())
+                .collect();
 
-                for key in orphaned_keys {
-                    if let Some(entry) = s.active_worktrees.remove(&key) {
-                        s.stale_worktrees.insert(
-                            key,
-                            state::StaleWorktreeEntry {
-                                original_path: entry.path,
-                                branch: entry.branch,
-                                base_commit: entry.base_commit,
-                                creator_name: entry.creator_name,
-                                session_uuid: entry.session_uuid,
-                                port: entry.port,
-                                last_activity: entry.last_activity,
-                                evicted_at: now,
-                                eviction_reason: "reconciliation: not in git worktree list"
-                                    .to_string(),
-                                expires_at: now
-                                    + chrono::Duration::days(
-                                        i64::from(self.config.stale_metadata_ttl_days),
-                                    ),
-                                extra: std::collections::HashMap::new(),
-                            },
-                        );
-                    }
+            for key in orphaned_keys {
+                if let Some(entry) = s.active_worktrees.remove(&key) {
+                    s.stale_worktrees.insert(
+                        key,
+                        state::StaleWorktreeEntry {
+                            original_path: entry.path,
+                            branch: entry.branch,
+                            base_commit: entry.base_commit,
+                            creator_name: entry.creator_name,
+                            session_uuid: entry.session_uuid,
+                            port: entry.port,
+                            last_activity: entry.last_activity,
+                            evicted_at: now,
+                            eviction_reason: "reconciliation: not in git worktree list".to_string(),
+                            expires_at: now
+                                + chrono::Duration::days(i64::from(
+                                    self.config.stale_metadata_ttl_days,
+                                )),
+                            extra: std::collections::HashMap::new(),
+                        },
+                    );
                 }
+            }
 
-                // Purge expired stale entries
-                s.stale_worktrees.retain(|_, v| v.expires_at > now);
+            // Purge expired stale entries
+            s.stale_worktrees.retain(|_, v| v.expires_at > now);
 
-                // Sweep port leases
-                ports::sweep_expired_leases(&mut s.port_leases, now);
+            // Sweep port leases
+            ports::sweep_expired_leases(&mut s.port_leases, now);
 
-                Ok(())
-            },
-        ) {
+            Ok(())
+        }) {
             eprintln!("[iso-code] WARNING: list reconciliation failed: {e}");
         }
 
@@ -283,12 +273,15 @@ impl Manager {
     ///   2. Write a `Creating` entry to state.json.
     ///   3. Run `git worktree add`.
     ///   4. Post-create git-crypt verification.
-    ///   5. Run [`EcosystemAdapter::setup`] if the caller requested it.
-    ///   6. Transition the entry to `Active` (or `Locked` if `options.lock`).
+    ///   5. Allocate a port lease if `options.allocate_port` so `ISO_CODE_PORT`
+    ///      is populated in the adapter's environment.
+    ///   6. Run [`EcosystemAdapter::setup`] if the caller requested it.
+    ///   7. Transition the entry to `Active` (or `Locked` if `options.lock`).
     ///
     /// If any step after `git worktree add` fails, the worktree is force-removed
-    /// with `git worktree remove --force` and the `Creating` entry is cleared
-    /// before the error propagates.
+    /// with `git worktree remove --force`, the port lease (if any) is released,
+    /// and the `Creating` entry is cleared before the error propagates. Adapter
+    /// `setup()` errors are wrapped in [`WorktreeError::AdapterSetupFailed`].
     pub fn create(
         &self,
         branch: impl Into<String>,
@@ -318,8 +311,7 @@ impl Manager {
         // filters won't run. Fail fast rather than relying on the post-create
         // magic-byte check to catch it.
         match crypt_status {
-            crate::types::GitCryptStatus::Locked
-            | crate::types::GitCryptStatus::LockedNoKey => {
+            crate::types::GitCryptStatus::Locked | crate::types::GitCryptStatus::LockedNoKey => {
                 return Err(WorktreeError::GitCryptLocked);
             }
             _ => {}
@@ -336,8 +328,7 @@ impl Manager {
             let base_ref = options.base.as_deref().unwrap_or("HEAD");
             git::resolve_ref(&self.repo_root, base_ref)?
         } else {
-            let branch_commit =
-                git::resolve_ref(&self.repo_root, &format!("refs/heads/{branch}"))?;
+            let branch_commit = git::resolve_ref(&self.repo_root, &format!("refs/heads/{branch}"))?;
             if let Some(requested_base) = options.base.as_deref() {
                 let requested_commit = git::resolve_ref(&self.repo_root, requested_base)?;
                 if requested_commit != branch_commit {
@@ -359,27 +350,26 @@ impl Manager {
         // Step 2: Persist a `Creating` entry so a crash before the worktree
         // exists is still recoverable.
         if let Err(e) = self.with_state(|s| {
-                s.active_worktrees.insert(
-                    branch.clone(),
-                    ActiveWorktreeEntry {
-                        path: target_path.to_string_lossy().to_string(),
-                        branch: branch.clone(),
-                        base_commit: base_commit.clone(),
-                        state: WorktreeState::Creating,
-                        created_at,
-                        last_activity: Some(created_at),
-                        creator_pid,
-                        creator_name: self.config.creator_name.clone(),
-                        session_uuid: session_uuid.clone(),
-                        adapter: None,
-                        setup_complete: false,
-                        port: None,
-                        extra: std::collections::HashMap::new(),
-                    },
-                );
-                Ok(())
-            },
-        ) {
+            s.active_worktrees.insert(
+                branch.clone(),
+                ActiveWorktreeEntry {
+                    path: target_path.to_string_lossy().to_string(),
+                    branch: branch.clone(),
+                    base_commit: base_commit.clone(),
+                    state: WorktreeState::Creating,
+                    created_at,
+                    last_activity: Some(created_at),
+                    creator_pid,
+                    creator_name: self.config.creator_name.clone(),
+                    session_uuid: session_uuid.clone(),
+                    adapter: None,
+                    setup_complete: false,
+                    port: None,
+                    extra: std::collections::HashMap::new(),
+                },
+            );
+            Ok(())
+        }) {
             eprintln!("[iso-code] WARNING: failed to persist Creating state: {e}");
         }
 
@@ -400,7 +390,10 @@ impl Manager {
             // was never registered would itself fail.
             let _ = std::fs::remove_dir_all(&target_path);
             // Clean up the Creating entry from state.json
-            if let Err(se) = self.with_state(|s| { s.active_worktrees.remove(&branch); Ok(()) }) {
+            if let Err(se) = self.with_state(|s| {
+                s.active_worktrees.remove(&branch);
+                Ok(())
+            }) {
                 eprintln!("[iso-code] WARNING: failed to clean up state after add failure: {se}");
             }
             return Err(e);
@@ -411,8 +404,13 @@ impl Manager {
             // Roll back the successful `git worktree add` before surfacing the
             // git-crypt failure, so we never leave a half-initialized worktree.
             let _ = git::worktree_remove_force(&self.repo_root, &target_path);
-            if let Err(se) = self.with_state(|s| { s.active_worktrees.remove(&branch); Ok(()) }) {
-                eprintln!("[iso-code] WARNING: failed to clean up state after git-crypt failure: {se}");
+            if let Err(se) = self.with_state(|s| {
+                s.active_worktrees.remove(&branch);
+                Ok(())
+            }) {
+                eprintln!(
+                    "[iso-code] WARNING: failed to clean up state after git-crypt failure: {se}"
+                );
             }
             return Err(e);
         }
@@ -504,16 +502,15 @@ impl Manager {
 
         // Persist Active state to state.json
         if let Err(e) = self.with_state(|s| {
-                if let Some(entry) = s.active_worktrees.get_mut(&branch) {
-                    entry.state = final_state.clone();
-                    entry.path = canon_path.to_string_lossy().to_string();
-                    entry.port = port;
-                    entry.adapter.clone_from(&adapter_name);
-                    entry.setup_complete = setup_complete;
-                }
-                Ok(())
-            },
-        ) {
+            if let Some(entry) = s.active_worktrees.get_mut(&branch) {
+                entry.state = final_state.clone();
+                entry.path = canon_path.to_string_lossy().to_string();
+                entry.port = port;
+                entry.adapter.clone_from(&adapter_name);
+                entry.setup_complete = setup_complete;
+            }
+            Ok(())
+        }) {
             eprintln!("[iso-code] WARNING: failed to persist Active state: {e}");
         }
 
@@ -570,10 +567,8 @@ impl Manager {
         }
 
         // Try to recover session_uuid and port from stale_worktrees
-        let existing_state = state::read_state(
-            &self.repo_root,
-            self.config.home_override.as_deref(),
-        ).ok();
+        let existing_state =
+            state::read_state(&self.repo_root, self.config.home_override.as_deref()).ok();
 
         let path_str = target_path.to_string_lossy().to_string();
         let branch = git_entry.branch.clone();
@@ -664,33 +659,32 @@ impl Manager {
 
         // Persist to state.json — remove only the specific recovered stale entry, add to active
         if let Err(e) = self.with_state(|s| {
-                if let Some(ref k) = recovered_stale_key {
-                    s.stale_worktrees.remove(k);
-                }
+            if let Some(ref k) = recovered_stale_key {
+                s.stale_worktrees.remove(k);
+            }
 
-                // Add to active_worktrees
-                s.active_worktrees.insert(
-                    branch.clone(),
-                    ActiveWorktreeEntry {
-                        path: path_str.clone(),
-                        branch: branch.clone(),
-                        base_commit: git_entry.base_commit.clone(),
-                        state: git_entry.state.clone(),
-                        created_at,
-                        last_activity: Some(created_at),
-                        creator_pid,
-                        creator_name: self.config.creator_name.clone(),
-                        session_uuid: session_uuid.clone(),
-                        adapter: adapter_name,
-                        setup_complete,
-                        port,
-                        extra: std::collections::HashMap::new(),
-                    },
-                );
+            // Add to active_worktrees
+            s.active_worktrees.insert(
+                branch.clone(),
+                ActiveWorktreeEntry {
+                    path: path_str.clone(),
+                    branch: branch.clone(),
+                    base_commit: git_entry.base_commit.clone(),
+                    state: git_entry.state.clone(),
+                    created_at,
+                    last_activity: Some(created_at),
+                    creator_pid,
+                    creator_name: self.config.creator_name.clone(),
+                    session_uuid: session_uuid.clone(),
+                    adapter: adapter_name,
+                    setup_complete,
+                    port,
+                    extra: std::collections::HashMap::new(),
+                },
+            );
 
-                Ok(())
-            },
-        ) {
+            Ok(())
+        }) {
             eprintln!("[iso-code] WARNING: failed to persist attach state: {e}");
         }
 
@@ -733,24 +727,29 @@ impl Manager {
         // Step 5: Transition to Deleting in state.json
         let branch = handle.branch.clone();
         if let Err(e) = self.with_state(|s| {
-                if let Some(entry) = s.active_worktrees.get_mut(&branch) {
-                    entry.state = WorktreeState::Deleting;
-                }
-                Ok(())
-            },
-        ) {
+            if let Some(entry) = s.active_worktrees.get_mut(&branch) {
+                entry.state = WorktreeState::Deleting;
+            }
+            Ok(())
+        }) {
             eprintln!("[iso-code] WARNING: failed to persist Deleting state: {e}");
         }
 
         // Step 6: EcosystemAdapter::teardown() if setup ran during create/attach.
         // Called before the worktree is physically removed so the adapter can
-        // still inspect files it owns. Errors are logged, not propagated —
-        // teardown failure shouldn't block the delete and leak a worktree.
+        // still inspect files it owns. Errors are logged (wrapped in
+        // AdapterTeardownFailed for consistency with the setup path), not
+        // propagated — teardown failure shouldn't block the delete and leak a
+        // worktree.
         if handle.setup_complete {
             if let Some(ref adapter) = self.adapter {
                 if let Err(e) = adapter.teardown(&handle.path) {
+                    let wrapped = WorktreeError::AdapterTeardownFailed {
+                        adapter: adapter.name().to_string(),
+                        reason: e.to_string(),
+                    };
                     eprintln!(
-                        "[iso-code] WARNING: adapter teardown failed for {}: {e}",
+                        "[iso-code] WARNING: {wrapped} (worktree: {})",
                         handle.path.display()
                     );
                 }
@@ -775,11 +774,10 @@ impl Manager {
 
         // Steps 7-8: Transition to Deleted, release port lease, remove from active
         if let Err(e) = self.with_state(|s| {
-                s.active_worktrees.remove(&branch);
-                s.port_leases.remove(&branch);
-                Ok(())
-            },
-        ) {
+            s.active_worktrees.remove(&branch);
+            s.port_leases.remove(&branch);
+            Ok(())
+        }) {
             eprintln!("[iso-code] WARNING: failed to persist Deleted state: {e}");
         }
 
@@ -793,9 +791,7 @@ impl Manager {
     /// `stale_worktrees` so their metadata can be recovered — `gc()` never
     /// silently drops state.
     pub fn gc(&self, options: GcOptions) -> Result<GcReport, WorktreeError> {
-        let max_age_days = options
-            .max_age_days
-            .unwrap_or(self.config.gc_max_age_days);
+        let max_age_days = options.max_age_days.unwrap_or(self.config.gc_max_age_days);
 
         // Get current git worktree list (source of truth).
         let mut git_worktrees = git::run_worktree_list(&self.repo_root, &self.capabilities)?;
@@ -805,10 +801,8 @@ impl Manager {
         // empty and creator_pid zero; without enrichment both gates silently
         // skip every worktree. We do not reconcile here (that is list()'s job)
         // so gc() stays side-effect-free until the mutation block further down.
-        if let Ok(state) = state::read_state(
-            &self.repo_root,
-            self.config.home_override.as_deref(),
-        ) {
+        if let Ok(state) = state::read_state(&self.repo_root, self.config.home_override.as_deref())
+        {
             for wt in &mut git_worktrees {
                 if let Some(entry) = state.active_worktrees.get(&wt.branch) {
                     wt.base_commit.clone_from(&entry.base_commit);
@@ -866,18 +860,23 @@ impl Manager {
             }
 
             // PID-liveness check: if creator_pid is still alive, skip eviction
-            if wt.state == WorktreeState::Active && wt.creator_pid != 0
-                && is_pid_alive(wt.creator_pid) {
+            if wt.state == WorktreeState::Active
+                && wt.creator_pid != 0
+                && is_pid_alive(wt.creator_pid)
+            {
                 continue;
             }
 
             // Five-step unmerged check (skip if force or orphaned)
-            if !options.force && wt.state != WorktreeState::Orphaned
+            if !options.force
+                && wt.state != WorktreeState::Orphaned
                 && guards::five_step_unmerged_check(
                     &wt.branch,
                     &self.repo_root,
                     self.config.offline,
-                ).is_err() {
+                )
+                .is_err()
+            {
                 continue; // Has unmerged commits — skip
             }
 
@@ -1002,10 +1001,8 @@ impl Manager {
                     .active_worktrees
                     .iter()
                     .filter(|(_, v)| {
-                        matches!(
-                            v.state,
-                            WorktreeState::Creating | WorktreeState::Pending
-                        ) && v.created_at < sweep_cutoff
+                        matches!(v.state, WorktreeState::Creating | WorktreeState::Pending)
+                            && v.created_at < sweep_cutoff
                             && v.creator_pid != 0
                             && !is_pid_alive(v.creator_pid)
                     })
@@ -1024,8 +1021,7 @@ impl Manager {
                                 port: entry.port,
                                 last_activity: entry.last_activity,
                                 evicted_at: now,
-                                eviction_reason: "gc: abandoned Creating entry"
-                                    .to_string(),
+                                eviction_reason: "gc: abandoned Creating entry".to_string(),
                                 expires_at: now + chrono::Duration::days(ttl_days),
                                 extra: std::collections::HashMap::new(),
                             },
@@ -1052,7 +1048,13 @@ impl Manager {
             }
         }
 
-        Ok(GcReport::new(orphans, removed, evicted, freed_bytes, options.dry_run))
+        Ok(GcReport::new(
+            orphans,
+            removed,
+            evicted,
+            freed_bytes,
+            options.dry_run,
+        ))
     }
 
     /// Mark `branch` as recently active by bumping its `last_activity`
@@ -1063,26 +1065,21 @@ impl Manager {
     /// tracked in `active_worktrees`.
     pub fn touch(&self, branch: &str) -> Result<(), WorktreeError> {
         let branch_owned = branch.to_string();
-        self.with_state(|s| {
-            match s.active_worktrees.get_mut(&branch_owned) {
-                Some(entry) => {
-                    entry.last_activity = Some(chrono::Utc::now());
-                    Ok(())
-                }
-                None => Err(WorktreeError::StateCorrupted {
-                    reason: format!("touch: branch '{branch_owned}' not in active_worktrees"),
-                }),
+        self.with_state(|s| match s.active_worktrees.get_mut(&branch_owned) {
+            Some(entry) => {
+                entry.last_activity = Some(chrono::Utc::now());
+                Ok(())
             }
+            None => Err(WorktreeError::StateCorrupted {
+                reason: format!("touch: branch '{branch_owned}' not in active_worktrees"),
+            }),
         })?;
         Ok(())
     }
 
     /// Return the active port lease for a branch, if any.
     pub fn port_lease(&self, branch: &str) -> Option<PortLease> {
-        let s = state::read_state(
-            &self.repo_root,
-            self.config.home_override.as_deref(),
-        ).ok()?;
+        let s = state::read_state(&self.repo_root, self.config.home_override.as_deref()).ok()?;
         let now = chrono::Utc::now();
         s.port_leases
             .get(branch)
@@ -1286,7 +1283,10 @@ mod tests {
         let result = mgr.delete(&handle, DeleteOptions::default());
         assert!(result.is_err());
         match result.unwrap_err() {
-            WorktreeError::UnmergedCommits { branch, commit_count } => {
+            WorktreeError::UnmergedCommits {
+                branch,
+                commit_count,
+            } => {
                 assert_eq!(branch, "unmerged-branch");
                 assert!(commit_count > 0);
             }
@@ -1296,7 +1296,11 @@ mod tests {
         // Cleanup with force
         let _ = mgr.delete(
             &handle,
-            DeleteOptions { force: true, force_dirty: true, ..Default::default() },
+            DeleteOptions {
+                force: true,
+                force_dirty: true,
+                ..Default::default()
+            },
         );
     }
 
@@ -1383,11 +1387,21 @@ mod tests {
         // Create a worktree manually via git (outside iso-code)
         let wt_path = repo.path().join("manual-wt");
         let output = Command::new("git")
-            .args(["worktree", "add", wt_path.to_str().unwrap(), "-b", "manual-branch"])
+            .args([
+                "worktree",
+                "add",
+                wt_path.to_str().unwrap(),
+                "-b",
+                "manual-branch",
+            ])
             .current_dir(repo.path())
             .output()
             .unwrap();
-        assert!(output.status.success(), "git worktree add failed: {}", String::from_utf8_lossy(&output.stderr));
+        assert!(
+            output.status.success(),
+            "git worktree add failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
 
         // Attach it via Manager
         let handle = mgr.attach(&wt_path, AttachOptions::default()).unwrap();
@@ -1445,7 +1459,13 @@ mod tests {
         // Create a worktree manually
         let wt_path = repo.path().join("idempotent-wt");
         let output = Command::new("git")
-            .args(["worktree", "add", wt_path.to_str().unwrap(), "-b", "idem-branch"])
+            .args([
+                "worktree",
+                "add",
+                wt_path.to_str().unwrap(),
+                "-b",
+                "idem-branch",
+            ])
             .current_dir(repo.path())
             .output()
             .unwrap();
@@ -1483,11 +1503,20 @@ mod tests {
 
         // Re-create manually via git
         let output = Command::new("git")
-            .args(["worktree", "add", wt_path.to_str().unwrap(), "reattach-branch"])
+            .args([
+                "worktree",
+                "add",
+                wt_path.to_str().unwrap(),
+                "reattach-branch",
+            ])
             .current_dir(repo.path())
             .output()
             .unwrap();
-        assert!(output.status.success(), "git worktree add failed: {}", String::from_utf8_lossy(&output.stderr));
+        assert!(
+            output.status.success(),
+            "git worktree add failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
 
         // Attach — should succeed with fresh session_uuid
         let attached = mgr.attach(&wt_path, AttachOptions::default()).unwrap();
@@ -1519,7 +1548,14 @@ mod tests {
         assert!(wt_path.exists());
 
         // Cleanup
-        mgr.delete(&handle, DeleteOptions { force: true, ..Default::default() }).unwrap();
+        mgr.delete(
+            &handle,
+            DeleteOptions {
+                force: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
     }
 
     /// QA-I-005 / PRD Appendix A rule 13 (inline): locked worktrees are
@@ -1538,7 +1574,11 @@ mod tests {
 
         // GC with force=true — a locked worktree must still survive.
         let report = mgr
-            .gc(GcOptions { dry_run: false, force: true, ..Default::default() })
+            .gc(GcOptions {
+                dry_run: false,
+                force: true,
+                ..Default::default()
+            })
             .unwrap();
 
         // The locked worktree must NOT appear in removed or evicted
@@ -1598,7 +1638,9 @@ mod tests {
 
         let state_after = state::read_state(mgr.repo_root(), None).unwrap();
         assert!(
-            state_after.active_worktrees.contains_key("in-flight-branch"),
+            state_after
+                .active_worktrees
+                .contains_key("in-flight-branch"),
             "Creating entry must remain in active_worktrees after list() reconciliation"
         );
         assert!(
@@ -1632,13 +1674,18 @@ mod tests {
         .unwrap();
 
         let report = mgr
-            .gc(GcOptions { dry_run: true, force: true, ..Default::default() })
+            .gc(GcOptions {
+                dry_run: true,
+                force: true,
+                ..Default::default()
+            })
             .unwrap();
 
         let canon_wt = dunce::canonicalize(&wt_path).unwrap();
-        let is_evicted = report.evicted.iter().any(|p| {
-            dunce::canonicalize(p).ok().as_deref() == Some(&canon_wt)
-        });
+        let is_evicted = report
+            .evicted
+            .iter()
+            .any(|p| dunce::canonicalize(p).ok().as_deref() == Some(&canon_wt));
         assert!(
             is_evicted,
             "Old worktree with dead creator_pid must be evicted by gc(), got evicted={:?}",
@@ -1648,7 +1695,11 @@ mod tests {
         // Cleanup
         let _ = mgr.delete(
             &handle,
-            DeleteOptions { force: true, force_dirty: true, ..Default::default() },
+            DeleteOptions {
+                force: true,
+                force_dirty: true,
+                ..Default::default()
+            },
         );
     }
 
@@ -1676,8 +1727,14 @@ mod tests {
         let la = entry.last_activity.unwrap();
         assert!(chrono::Utc::now() - la < chrono::Duration::seconds(5));
 
-        mgr.delete(&handle, DeleteOptions { force: true, ..Default::default() })
-            .unwrap();
+        mgr.delete(
+            &handle,
+            DeleteOptions {
+                force: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
     }
 
     #[test]
@@ -1724,7 +1781,11 @@ mod tests {
         // Even a dry_run=false gc triggers the sweep. The entry isn't in git's
         // list so it isn't evicted the normal way — only the sweep reaches it.
         let _ = mgr
-            .gc(GcOptions { dry_run: false, force: true, ..Default::default() })
+            .gc(GcOptions {
+                dry_run: false,
+                force: true,
+                ..Default::default()
+            })
             .unwrap();
 
         let after = state::read_state(mgr.repo_root(), None).unwrap();
@@ -1751,7 +1812,10 @@ mod tests {
             .create(
                 "lease-branch",
                 &wt_path,
-                CreateOptions { allocate_port: true, ..Default::default() },
+                CreateOptions {
+                    allocate_port: true,
+                    ..Default::default()
+                },
             )
             .unwrap();
         assert!(handle.port.is_some());
@@ -1766,7 +1830,11 @@ mod tests {
         .unwrap();
 
         let _ = mgr
-            .gc(GcOptions { dry_run: false, force: true, ..Default::default() })
+            .gc(GcOptions {
+                dry_run: false,
+                force: true,
+                ..Default::default()
+            })
             .unwrap();
 
         let after = state::read_state(mgr.repo_root(), None).unwrap();
@@ -1836,8 +1904,12 @@ mod tests {
     }
 
     impl crate::types::EcosystemAdapter for TeardownProbe {
-        fn name(&self) -> &str { "teardown-probe" }
-        fn detect(&self, _worktree_path: &Path) -> bool { true }
+        fn name(&self) -> &str {
+            "teardown-probe"
+        }
+        fn detect(&self, _worktree_path: &Path) -> bool {
+            true
+        }
         fn setup(&self, _worktree_path: &Path, _source: &Path) -> Result<(), WorktreeError> {
             Ok(())
         }
@@ -1852,7 +1924,9 @@ mod tests {
     fn test_delete_invokes_teardown_when_setup_completed() {
         let repo = create_test_repo();
         let called = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let probe = Box::new(TeardownProbe { teardown_called: called.clone() });
+        let probe = Box::new(TeardownProbe {
+            teardown_called: called.clone(),
+        });
         let mgr = Manager::with_adapter(repo.path(), Config::default(), Some(probe)).unwrap();
 
         let wt_path = repo.path().join("teardown-wt");
@@ -1860,7 +1934,10 @@ mod tests {
             .create(
                 "teardown-branch",
                 &wt_path,
-                CreateOptions { setup: true, ..Default::default() },
+                CreateOptions {
+                    setup: true,
+                    ..Default::default()
+                },
             )
             .unwrap();
         assert!(handle.setup_complete, "setup should have completed");
@@ -1876,7 +1953,9 @@ mod tests {
     fn test_delete_skips_teardown_when_setup_not_completed() {
         let repo = create_test_repo();
         let called = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let probe = Box::new(TeardownProbe { teardown_called: called.clone() });
+        let probe = Box::new(TeardownProbe {
+            teardown_called: called.clone(),
+        });
         let mgr = Manager::with_adapter(repo.path(), Config::default(), Some(probe)).unwrap();
 
         let wt_path = repo.path().join("no-setup-wt");
@@ -1919,13 +1998,18 @@ mod tests {
         .unwrap();
 
         let report = mgr
-            .gc(GcOptions { dry_run: true, force: true, ..Default::default() })
+            .gc(GcOptions {
+                dry_run: true,
+                force: true,
+                ..Default::default()
+            })
             .unwrap();
 
         let canon_wt = dunce::canonicalize(&wt_path).unwrap();
-        let is_evicted = report.evicted.iter().any(|p| {
-            dunce::canonicalize(p).ok().as_deref() == Some(&canon_wt)
-        });
+        let is_evicted = report
+            .evicted
+            .iter()
+            .any(|p| dunce::canonicalize(p).ok().as_deref() == Some(&canon_wt));
         assert!(
             !is_evicted,
             "Worktree with live creator_pid must NOT be evicted, got evicted={:?}",
@@ -1935,7 +2019,282 @@ mod tests {
         // Cleanup
         let _ = mgr.delete(
             &handle,
-            DeleteOptions { force: true, force_dirty: true, ..Default::default() },
+            DeleteOptions {
+                force: true,
+                force_dirty: true,
+                ..Default::default()
+            },
+        );
+    }
+
+    // ── EcosystemAdapter env var injection & failure rollback ────────────
+
+    /// Records the environment observed inside setup() so tests can assert
+    /// that the full 11-var bundle was populated by the caller.
+    struct EnvCaptureAdapter {
+        captured: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, String>>>,
+    }
+
+    impl crate::adapter::EcosystemAdapter for EnvCaptureAdapter {
+        fn name(&self) -> &str {
+            "env-capture"
+        }
+        fn detect(&self, _worktree_path: &Path) -> bool {
+            true
+        }
+        fn setup(&self, _worktree_path: &Path, _source: &Path) -> Result<(), WorktreeError> {
+            let mut map = self.captured.lock().unwrap();
+            for key in [
+                "ISO_CODE_PATH",
+                "ISO_CODE_BRANCH",
+                "ISO_CODE_REPO",
+                "ISO_CODE_NAME",
+                "ISO_CODE_PORT",
+                "ISO_CODE_UUID",
+                "CCMANAGER_WORKTREE_PATH",
+                "CCMANAGER_BRANCH_NAME",
+                "CCMANAGER_GIT_ROOT",
+                "WM_WORKTREE_PATH",
+                "WM_PROJECT_ROOT",
+            ] {
+                if let Ok(v) = std::env::var(key) {
+                    map.insert(key.to_string(), v);
+                }
+            }
+            Ok(())
+        }
+        fn teardown(&self, _worktree_path: &Path) -> Result<(), WorktreeError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_create_injects_all_11_env_vars_before_setup() {
+        let repo = create_test_repo();
+        let captured = std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new()));
+        let adapter = Box::new(EnvCaptureAdapter {
+            captured: captured.clone(),
+        });
+        let mgr = Manager::with_adapter(repo.path(), Config::default(), Some(adapter)).unwrap();
+
+        let wt_path = repo.path().join("env-wt");
+        let (handle, _) = mgr
+            .create(
+                "env-branch",
+                &wt_path,
+                CreateOptions {
+                    setup: true,
+                    allocate_port: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        let seen = captured.lock().unwrap();
+        for key in [
+            "ISO_CODE_PATH",
+            "ISO_CODE_BRANCH",
+            "ISO_CODE_REPO",
+            "ISO_CODE_NAME",
+            "ISO_CODE_PORT",
+            "ISO_CODE_UUID",
+            "CCMANAGER_WORKTREE_PATH",
+            "CCMANAGER_BRANCH_NAME",
+            "CCMANAGER_GIT_ROOT",
+            "WM_WORKTREE_PATH",
+            "WM_PROJECT_ROOT",
+        ] {
+            assert!(
+                seen.contains_key(key),
+                "setup() did not observe env var {key}"
+            );
+        }
+        assert_eq!(seen["ISO_CODE_BRANCH"], "env-branch");
+        assert_eq!(seen["CCMANAGER_BRANCH_NAME"], "env-branch");
+        assert_eq!(seen["ISO_CODE_UUID"], handle.session_uuid);
+        assert!(
+            !seen["ISO_CODE_PORT"].is_empty(),
+            "ISO_CODE_PORT must be populated when a port was leased"
+        );
+        // Path equality after canonicalization (symlink-resolved repo root).
+        let canon_repo = dunce::canonicalize(repo.path()).unwrap();
+        assert_eq!(std::path::PathBuf::from(&seen["ISO_CODE_REPO"]), canon_repo,);
+
+        let _ = mgr.delete(
+            &handle,
+            DeleteOptions {
+                force: true,
+                force_dirty: true,
+                ..Default::default()
+            },
+        );
+    }
+
+    /// An adapter whose setup() always fails, to exercise the rollback path.
+    struct FailingSetupAdapter;
+    impl crate::adapter::EcosystemAdapter for FailingSetupAdapter {
+        fn name(&self) -> &str {
+            "failing"
+        }
+        fn detect(&self, _worktree_path: &Path) -> bool {
+            true
+        }
+        fn setup(&self, _worktree_path: &Path, _source: &Path) -> Result<(), WorktreeError> {
+            Err(WorktreeError::StateCorrupted {
+                reason: "synthetic setup failure".to_string(),
+            })
+        }
+        fn teardown(&self, _worktree_path: &Path) -> Result<(), WorktreeError> {
+            Ok(())
+        }
+    }
+
+    /// Records every call to the adapter in the order it happened so tests
+    /// can assert on the relative ordering of setup(), teardown(), and
+    /// observed filesystem state.
+    struct CallOrderProbe {
+        log: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    }
+
+    impl crate::adapter::EcosystemAdapter for CallOrderProbe {
+        fn name(&self) -> &str {
+            "call-order"
+        }
+        fn detect(&self, _worktree_path: &Path) -> bool {
+            self.log.lock().unwrap().push("detect".to_string());
+            true
+        }
+        fn setup(&self, _worktree_path: &Path, _source: &Path) -> Result<(), WorktreeError> {
+            self.log.lock().unwrap().push("setup".to_string());
+            Ok(())
+        }
+        /// Teardown records whether the worktree directory was still on disk
+        /// at the moment of the call — this is how we assert that the library
+        /// invokes teardown BEFORE `git worktree remove`.
+        fn teardown(&self, worktree_path: &Path) -> Result<(), WorktreeError> {
+            let present = worktree_path.exists();
+            self.log.lock().unwrap().push(format!(
+                "teardown(exists={})",
+                if present { "yes" } else { "no" }
+            ));
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_adapter_call_order_setup_then_teardown() {
+        let repo = create_test_repo();
+        let log = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let probe = Box::new(CallOrderProbe { log: log.clone() });
+        let mgr = Manager::with_adapter(repo.path(), Config::default(), Some(probe)).unwrap();
+
+        let wt_path = repo.path().join("order-wt");
+        let (handle, _) = mgr
+            .create(
+                "order-branch",
+                &wt_path,
+                CreateOptions {
+                    setup: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        mgr.delete(&handle, DeleteOptions::default()).unwrap();
+
+        let entries = log.lock().unwrap().clone();
+        // The library currently drives only setup() and teardown(); detect()
+        // is reserved for future auto-detection and must not fire here.
+        assert_eq!(
+            entries.len(),
+            2,
+            "expected exactly setup + teardown, got {entries:?}"
+        );
+        assert_eq!(entries[0], "setup", "setup must run first");
+        assert!(
+            entries[1].starts_with("teardown"),
+            "teardown must follow setup: {entries:?}"
+        );
+    }
+
+    #[test]
+    fn test_teardown_runs_before_git_worktree_remove() {
+        let repo = create_test_repo();
+        let log = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let probe = Box::new(CallOrderProbe { log: log.clone() });
+        let mgr = Manager::with_adapter(repo.path(), Config::default(), Some(probe)).unwrap();
+
+        let wt_path = repo.path().join("pre-remove-wt");
+        let (handle, _) = mgr
+            .create(
+                "pre-remove-branch",
+                &wt_path,
+                CreateOptions {
+                    setup: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        mgr.delete(&handle, DeleteOptions::default()).unwrap();
+
+        let entries = log.lock().unwrap().clone();
+        let teardown = entries
+            .iter()
+            .find(|e| e.starts_with("teardown"))
+            .expect("teardown must be recorded");
+        assert_eq!(
+            teardown, "teardown(exists=yes)",
+            "teardown() must observe the worktree still on disk — the library \
+             must call it BEFORE git worktree remove"
+        );
+    }
+
+    #[test]
+    fn test_create_rolls_back_worktree_when_setup_fails() {
+        let repo = create_test_repo();
+        let adapter = Box::new(FailingSetupAdapter);
+        let mgr = Manager::with_adapter(repo.path(), Config::default(), Some(adapter)).unwrap();
+
+        let wt_path = repo.path().join("rollback-wt");
+        let result = mgr.create(
+            "rollback-branch",
+            &wt_path,
+            CreateOptions {
+                setup: true,
+                allocate_port: true,
+                ..Default::default()
+            },
+        );
+
+        // The library wraps adapter-originated errors in AdapterSetupFailed.
+        match result {
+            Err(WorktreeError::AdapterSetupFailed { adapter, .. }) => {
+                assert_eq!(adapter, "failing");
+            }
+            other => panic!("expected AdapterSetupFailed, got: {other:?}"),
+        }
+
+        // Worktree must be gone from disk.
+        assert!(
+            !wt_path.exists(),
+            "worktree directory must be removed after setup() failure"
+        );
+
+        // State must have no active entry and no port lease for this branch.
+        let state = state::read_state(mgr.repo_root(), None).unwrap();
+        assert!(
+            !state.active_worktrees.contains_key("rollback-branch"),
+            "active_worktrees must not retain an entry after setup() failure"
+        );
+        assert!(
+            !state.port_leases.contains_key("rollback-branch"),
+            "port lease must be released after setup() failure"
+        );
+
+        // git worktree list must not list the path either.
+        let worktrees = mgr.list().unwrap();
+        assert!(
+            !worktrees.iter().any(|w| w.branch == "rollback-branch"),
+            "git worktree registry must not retain the branch after setup() failure"
         );
     }
 
