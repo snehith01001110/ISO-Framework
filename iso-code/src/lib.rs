@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 pub mod adapter;
+pub mod adapters;
 pub mod error;
 pub mod git;
 pub mod guards;
@@ -14,6 +15,7 @@ pub mod util;
 
 // Re-export all public types at the crate root
 pub use adapter::{EcosystemAdapter, SetupContext};
+pub use adapters::DefaultAdapter;
 pub use error::WorktreeError;
 pub use manager::Manager;
 pub use types::{
