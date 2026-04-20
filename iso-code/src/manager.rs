@@ -1,13 +1,14 @@
 use std::path::{Path, PathBuf};
 
+use crate::adapter::{EcosystemAdapter, EnvVars};
 use crate::error::WorktreeError;
 use crate::git;
 use crate::guards;
 use crate::ports;
 use crate::state::{self, ActiveWorktreeEntry};
 use crate::types::{
-    AttachOptions, Config, CopyOutcome, CreateOptions, DeleteOptions, EcosystemAdapter, GcOptions,
-    GcReport, GitCapabilities, PortLease, WorktreeHandle, WorktreeState,
+    AttachOptions, Config, CopyOutcome, CreateOptions, DeleteOptions, GcOptions, GcReport,
+    GitCapabilities, PortLease, WorktreeHandle, WorktreeState,
 };
 use crate::util;
 
@@ -416,42 +417,9 @@ impl Manager {
             return Err(e);
         }
 
-        // Step 5: EcosystemAdapter::setup() if requested
-        let (adapter_name, setup_complete) = if options.setup {
-            let Some(ref adapter) = self.adapter else {
-                // setup=true but no adapter registered: fail loudly rather than silently.
-                let _ = git::worktree_remove_force(&self.repo_root, &target_path);
-                if let Err(se) = self.with_state(|s| { s.active_worktrees.remove(&branch); Ok(()) }) {
-                    eprintln!("[iso-code] WARNING: failed to clean up state after missing-adapter error: {se}");
-                }
-                return Err(WorktreeError::SetupRequestedWithoutAdapter);
-            };
-
-            let repo_root = self.repo_root.clone();
-            match adapter.setup(&target_path, &repo_root) {
-                Ok(()) => (Some(adapter.name().to_string()), true),
-                Err(e) => {
-                    // Roll back the worktree so adapter failures don't leave a
-                    // half-configured checkout on disk.
-                    let _ = git::worktree_remove_force(&self.repo_root, &target_path);
-                    if let Err(se) = self.with_state(|s| { s.active_worktrees.remove(&branch); Ok(()) }) {
-                        eprintln!("[iso-code] WARNING: failed to clean up state after adapter failure: {se}");
-                    }
-                    return Err(e);
-                }
-            }
-        } else {
-            (None, false)
-        };
-
-        // Step 6: Build the handle and transition the entry to its final state.
-        let final_state = if options.lock {
-            WorktreeState::Locked
-        } else {
-            WorktreeState::Active
-        };
-
-        // Allocate port if requested
+        // Allocate port before adapter setup so ISO_CODE_PORT is populated
+        // for the adapter's environment. If setup fails, the lease is released
+        // alongside the worktree rollback.
         let port = if options.allocate_port {
             let repo_id = state::compute_repo_id(&self.repo_root);
             self.with_state(|s| {
@@ -471,6 +439,65 @@ impl Manager {
             .and_then(|s| s.port_leases.get(&branch).map(|l| l.port))
         } else {
             None
+        };
+
+        // Step 5: EcosystemAdapter::setup() if requested
+        let (adapter_name, setup_complete) = if options.setup {
+            let Some(ref adapter) = self.adapter else {
+                // setup=true but no adapter registered: fail loudly rather than silently.
+                let _ = git::worktree_remove_force(&self.repo_root, &target_path);
+                if let Err(se) = self.with_state(|s| {
+                    s.active_worktrees.remove(&branch);
+                    s.port_leases.remove(&branch);
+                    Ok(())
+                }) {
+                    eprintln!("[iso-code] WARNING: failed to clean up state after missing-adapter error: {se}");
+                }
+                return Err(WorktreeError::SetupRequestedWithoutAdapter);
+            };
+
+            let repo_root = self.repo_root.clone();
+            let env = EnvVars {
+                path: target_path.to_string_lossy().into_owned(),
+                branch: branch.clone(),
+                repo: repo_root.to_string_lossy().into_owned(),
+                name: self.config.creator_name.clone(),
+                port: port.map(|p| p.to_string()).unwrap_or_default(),
+                uuid: session_uuid.clone(),
+            };
+            let adapter_name_owned = adapter.name().to_string();
+            let result = {
+                let _guard = env.apply_to_process();
+                adapter.setup(&target_path, &repo_root)
+            };
+            match result {
+                Ok(()) => (Some(adapter_name_owned), true),
+                Err(e) => {
+                    // Roll back the worktree so adapter failures don't leave a
+                    // half-configured checkout on disk.
+                    let _ = git::worktree_remove_force(&self.repo_root, &target_path);
+                    if let Err(se) = self.with_state(|s| {
+                        s.active_worktrees.remove(&branch);
+                        s.port_leases.remove(&branch);
+                        Ok(())
+                    }) {
+                        eprintln!("[iso-code] WARNING: failed to clean up state after adapter failure: {se}");
+                    }
+                    return Err(WorktreeError::AdapterSetupFailed {
+                        adapter: adapter_name_owned,
+                        reason: e.to_string(),
+                    });
+                }
+            }
+        } else {
+            (None, false)
+        };
+
+        // Step 6: Build the handle and transition the entry to its final state.
+        let final_state = if options.lock {
+            WorktreeState::Locked
+        } else {
+            WorktreeState::Active
         };
 
         let canon_path = dunce::canonicalize(&target_path).unwrap_or(target_path);
@@ -597,11 +624,24 @@ impl Manager {
                 return Err(WorktreeError::SetupRequestedWithoutAdapter);
             };
             let repo_root = self.repo_root.clone();
-            match adapter.setup(&target_path, &repo_root) {
-                Ok(()) => (Some(adapter.name().to_string()), true),
+            let env = EnvVars {
+                path: target_path.to_string_lossy().into_owned(),
+                branch: branch.clone(),
+                repo: repo_root.to_string_lossy().into_owned(),
+                name: self.config.creator_name.clone(),
+                port: port.map(|p| p.to_string()).unwrap_or_default(),
+                uuid: session_uuid.clone(),
+            };
+            let adapter_name_owned = adapter.name().to_string();
+            let result = {
+                let _guard = env.apply_to_process();
+                adapter.setup(&target_path, &repo_root)
+            };
+            match result {
+                Ok(()) => (Some(adapter_name_owned), true),
                 Err(e) => {
                     eprintln!("[iso-code] WARNING: adapter setup failed during attach: {e}");
-                    (Some(adapter.name().to_string()), false)
+                    (Some(adapter_name_owned), false)
                 }
             }
         } else {
@@ -1896,6 +1936,162 @@ mod tests {
         let _ = mgr.delete(
             &handle,
             DeleteOptions { force: true, force_dirty: true, ..Default::default() },
+        );
+    }
+
+    // ── EcosystemAdapter env var injection & failure rollback ────────────
+
+    /// Records the environment observed inside setup() so tests can assert
+    /// that the full 11-var bundle was populated by the caller.
+    struct EnvCaptureAdapter {
+        captured: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, String>>>,
+    }
+
+    impl crate::adapter::EcosystemAdapter for EnvCaptureAdapter {
+        fn name(&self) -> &str { "env-capture" }
+        fn detect(&self, _worktree_path: &Path) -> bool { true }
+        fn setup(&self, _worktree_path: &Path, _source: &Path) -> Result<(), WorktreeError> {
+            let mut map = self.captured.lock().unwrap();
+            for key in [
+                "ISO_CODE_PATH",
+                "ISO_CODE_BRANCH",
+                "ISO_CODE_REPO",
+                "ISO_CODE_NAME",
+                "ISO_CODE_PORT",
+                "ISO_CODE_UUID",
+                "CCMANAGER_WORKTREE_PATH",
+                "CCMANAGER_BRANCH_NAME",
+                "CCMANAGER_GIT_ROOT",
+                "WM_WORKTREE_PATH",
+                "WM_PROJECT_ROOT",
+            ] {
+                if let Ok(v) = std::env::var(key) {
+                    map.insert(key.to_string(), v);
+                }
+            }
+            Ok(())
+        }
+        fn teardown(&self, _worktree_path: &Path) -> Result<(), WorktreeError> { Ok(()) }
+    }
+
+    #[test]
+    fn test_create_injects_all_11_env_vars_before_setup() {
+        let repo = create_test_repo();
+        let captured = std::sync::Arc::new(std::sync::Mutex::new(
+            std::collections::HashMap::new(),
+        ));
+        let adapter = Box::new(EnvCaptureAdapter { captured: captured.clone() });
+        let mgr = Manager::with_adapter(repo.path(), Config::default(), Some(adapter)).unwrap();
+
+        let wt_path = repo.path().join("env-wt");
+        let (handle, _) = mgr
+            .create(
+                "env-branch",
+                &wt_path,
+                CreateOptions {
+                    setup: true,
+                    allocate_port: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        let seen = captured.lock().unwrap();
+        for key in [
+            "ISO_CODE_PATH",
+            "ISO_CODE_BRANCH",
+            "ISO_CODE_REPO",
+            "ISO_CODE_NAME",
+            "ISO_CODE_PORT",
+            "ISO_CODE_UUID",
+            "CCMANAGER_WORKTREE_PATH",
+            "CCMANAGER_BRANCH_NAME",
+            "CCMANAGER_GIT_ROOT",
+            "WM_WORKTREE_PATH",
+            "WM_PROJECT_ROOT",
+        ] {
+            assert!(seen.contains_key(key), "setup() did not observe env var {key}");
+        }
+        assert_eq!(seen["ISO_CODE_BRANCH"], "env-branch");
+        assert_eq!(seen["CCMANAGER_BRANCH_NAME"], "env-branch");
+        assert_eq!(seen["ISO_CODE_UUID"], handle.session_uuid);
+        assert!(
+            !seen["ISO_CODE_PORT"].is_empty(),
+            "ISO_CODE_PORT must be populated when a port was leased"
+        );
+        // Path equality after canonicalization (symlink-resolved repo root).
+        let canon_repo = dunce::canonicalize(repo.path()).unwrap();
+        assert_eq!(
+            std::path::PathBuf::from(&seen["ISO_CODE_REPO"]),
+            canon_repo,
+        );
+
+        let _ = mgr.delete(
+            &handle,
+            DeleteOptions { force: true, force_dirty: true, ..Default::default() },
+        );
+    }
+
+    /// An adapter whose setup() always fails, to exercise the rollback path.
+    struct FailingSetupAdapter;
+    impl crate::adapter::EcosystemAdapter for FailingSetupAdapter {
+        fn name(&self) -> &str { "failing" }
+        fn detect(&self, _worktree_path: &Path) -> bool { true }
+        fn setup(&self, _worktree_path: &Path, _source: &Path) -> Result<(), WorktreeError> {
+            Err(WorktreeError::StateCorrupted {
+                reason: "synthetic setup failure".to_string(),
+            })
+        }
+        fn teardown(&self, _worktree_path: &Path) -> Result<(), WorktreeError> { Ok(()) }
+    }
+
+    #[test]
+    fn test_create_rolls_back_worktree_when_setup_fails() {
+        let repo = create_test_repo();
+        let adapter = Box::new(FailingSetupAdapter);
+        let mgr = Manager::with_adapter(repo.path(), Config::default(), Some(adapter)).unwrap();
+
+        let wt_path = repo.path().join("rollback-wt");
+        let result = mgr.create(
+            "rollback-branch",
+            &wt_path,
+            CreateOptions {
+                setup: true,
+                allocate_port: true,
+                ..Default::default()
+            },
+        );
+
+        // The library wraps adapter-originated errors in AdapterSetupFailed.
+        match result {
+            Err(WorktreeError::AdapterSetupFailed { adapter, .. }) => {
+                assert_eq!(adapter, "failing");
+            }
+            other => panic!("expected AdapterSetupFailed, got: {other:?}"),
+        }
+
+        // Worktree must be gone from disk.
+        assert!(
+            !wt_path.exists(),
+            "worktree directory must be removed after setup() failure"
+        );
+
+        // State must have no active entry and no port lease for this branch.
+        let state = state::read_state(mgr.repo_root(), None).unwrap();
+        assert!(
+            !state.active_worktrees.contains_key("rollback-branch"),
+            "active_worktrees must not retain an entry after setup() failure"
+        );
+        assert!(
+            !state.port_leases.contains_key("rollback-branch"),
+            "port lease must be released after setup() failure"
+        );
+
+        // git worktree list must not list the path either.
+        let worktrees = mgr.list().unwrap();
+        assert!(
+            !worktrees.iter().any(|w| w.branch == "rollback-branch"),
+            "git worktree registry must not retain the branch after setup() failure"
         );
     }
 }

@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+
+#[doc(inline)]
+pub use crate::adapter::EcosystemAdapter;
 
 // ── 4.1 WorktreeHandle ──────────────────────────────────────────────────
 
@@ -393,32 +396,5 @@ pub enum GitCryptStatus {
 }
 
 // ── 6. EcosystemAdapter Trait ───────────────────────────────────────────
-
-/// Trait for language/framework-specific setup in new worktrees.
-pub trait EcosystemAdapter: Send + Sync {
-    /// Name used in state.json and log messages.
-    fn name(&self) -> &str;
-
-    /// Return true if this adapter should run for the given worktree path.
-    /// Called during auto-detection. Inspect package.json, Cargo.toml, etc.
-    fn detect(&self, worktree_path: &Path) -> bool;
-
-    /// Set up the environment in the new worktree.
-    ///
-    /// source_worktree is the main worktree path (for copying files from).
-    fn setup(
-        &self,
-        worktree_path: &Path,
-        source_worktree: &Path,
-    ) -> Result<(), crate::error::WorktreeError>;
-
-    /// Clean up adapter-managed resources when the worktree is deleted.
-    fn teardown(&self, worktree_path: &Path) -> Result<(), crate::error::WorktreeError>;
-
-    /// Optionally transform the branch name before use.
-    /// Default: identity (no transformation).
-    /// The core library NEVER calls this internally. Only adapters that opt in use it.
-    fn branch_name(&self, input: &str) -> String {
-        input.to_string()
-    }
-}
+// Defined in `crate::adapter`; re-exported at the top of this file for
+// backward compatibility with `crate::types::EcosystemAdapter` imports.
