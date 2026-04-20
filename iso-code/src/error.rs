@@ -85,6 +85,26 @@ pub enum WorktreeError {
     #[error("setup = true was requested but no EcosystemAdapter is registered on this Manager — use Manager::with_adapter()")]
     SetupRequestedWithoutAdapter,
 
+    #[error("adapter '{adapter}' setup failed: {reason}")]
+    AdapterSetupFailed { adapter: String, reason: String },
+
+    #[error("adapter '{adapter}' teardown failed: {reason}")]
+    AdapterTeardownFailed { adapter: String, reason: String },
+
+    #[error("adapter '{adapter}' timed out after {timeout_ms}ms during {phase}")]
+    AdapterTimeout {
+        adapter: String,
+        phase: String,
+        timeout_ms: u64,
+    },
+
+    #[error("adapter '{adapter}' requires missing dependency '{dependency}': {hint}")]
+    AdapterMissingDependency {
+        adapter: String,
+        dependency: String,
+        hint: String,
+    },
+
     #[error("git command failed\n  command: {command}\n  stderr: {stderr}\n  exit: {exit_code}")]
     GitCommandFailed {
         command: String,
