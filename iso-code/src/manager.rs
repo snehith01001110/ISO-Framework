@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::adapter::{EcosystemAdapter, EnvVars};
+use crate::adapter::{EcosystemAdapter, EnvVars, SetupContext};
 use crate::error::WorktreeError;
 use crate::git;
 use crate::guards;
@@ -464,9 +464,10 @@ impl Manager {
                 uuid: session_uuid.clone(),
             };
             let adapter_name_owned = adapter.name().to_string();
+            let ctx = SetupContext::new(options.reflink_mode);
             let result = {
                 let _guard = env.apply_to_process();
-                adapter.setup(&target_path, &repo_root)
+                adapter.setup(&target_path, &repo_root, &ctx)
             };
             match result {
                 Ok(()) => (Some(adapter_name_owned), true),
@@ -628,9 +629,10 @@ impl Manager {
                 uuid: session_uuid.clone(),
             };
             let adapter_name_owned = adapter.name().to_string();
+            let ctx = SetupContext::default();
             let result = {
                 let _guard = env.apply_to_process();
-                adapter.setup(&target_path, &repo_root)
+                adapter.setup(&target_path, &repo_root, &ctx)
             };
             match result {
                 Ok(()) => (Some(adapter_name_owned), true),
@@ -1910,7 +1912,7 @@ mod tests {
         fn detect(&self, _worktree_path: &Path) -> bool {
             true
         }
-        fn setup(&self, _worktree_path: &Path, _source: &Path) -> Result<(), WorktreeError> {
+        fn setup(&self, _worktree_path: &Path, _source: &Path, _ctx: &SetupContext) -> Result<(), WorktreeError> {
             Ok(())
         }
         fn teardown(&self, _worktree_path: &Path) -> Result<(), WorktreeError> {
@@ -2042,7 +2044,7 @@ mod tests {
         fn detect(&self, _worktree_path: &Path) -> bool {
             true
         }
-        fn setup(&self, _worktree_path: &Path, _source: &Path) -> Result<(), WorktreeError> {
+        fn setup(&self, _worktree_path: &Path, _source: &Path, _ctx: &SetupContext) -> Result<(), WorktreeError> {
             let mut map = self.captured.lock().unwrap();
             for key in [
                 "ISO_CODE_PATH",
@@ -2139,7 +2141,7 @@ mod tests {
         fn detect(&self, _worktree_path: &Path) -> bool {
             true
         }
-        fn setup(&self, _worktree_path: &Path, _source: &Path) -> Result<(), WorktreeError> {
+        fn setup(&self, _worktree_path: &Path, _source: &Path, _ctx: &SetupContext) -> Result<(), WorktreeError> {
             Err(WorktreeError::StateCorrupted {
                 reason: "synthetic setup failure".to_string(),
             })
@@ -2164,7 +2166,7 @@ mod tests {
             self.log.lock().unwrap().push("detect".to_string());
             true
         }
-        fn setup(&self, _worktree_path: &Path, _source: &Path) -> Result<(), WorktreeError> {
+        fn setup(&self, _worktree_path: &Path, _source: &Path, _ctx: &SetupContext) -> Result<(), WorktreeError> {
             self.log.lock().unwrap().push("setup".to_string());
             Ok(())
         }

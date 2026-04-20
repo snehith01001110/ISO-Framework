@@ -16,6 +16,7 @@
 use std::path::Path;
 
 use crate::error::WorktreeError;
+use crate::types::ReflinkMode;
 
 /// Trait for language/framework-specific setup in new worktrees.
 ///
@@ -60,6 +61,9 @@ pub trait EcosystemAdapter: Send + Sync {
     /// `worktree_path` is the newly-created worktree; `source_worktree` is
     /// the repository root the worktree was spawned from (used for copying
     /// `.env` files and other un-tracked state that needs to cross over).
+    /// `ctx` carries per-call options from [`CreateOptions`](crate::types::CreateOptions)
+    /// that the adapter must respect — currently
+    /// [`SetupContext::reflink_mode`] for file-copying adapters.
     ///
     /// All 11 environment variables listed in the trait-level doc comment
     /// are set by the caller before this method runs.
@@ -67,6 +71,7 @@ pub trait EcosystemAdapter: Send + Sync {
         &self,
         worktree_path: &Path,
         source_worktree: &Path,
+        ctx: &SetupContext,
     ) -> Result<(), WorktreeError>;
 
     /// Clean up adapter-managed resources when the worktree is deleted.
@@ -82,6 +87,37 @@ pub trait EcosystemAdapter: Send + Sync {
     /// this internally. Only adapters that opt in use it.
     fn branch_name(&self, input: &str) -> String {
         input.to_string()
+    }
+}
+
+/// Per-call context passed to [`EcosystemAdapter::setup`] alongside the
+/// worktree paths.
+///
+/// Carries options from [`CreateOptions`](crate::types::CreateOptions) and
+/// [`AttachOptions`](crate::types::AttachOptions) that the adapter must honor
+/// (e.g. [`ReflinkMode`] for file-copying adapters). New per-call options
+/// are added as fields here — not as new method parameters — so the trait
+/// signature stays stable as the caller's needs evolve.
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub struct SetupContext {
+    /// Copy-on-Write mode for any file-copying the adapter performs.
+    /// Mirrors [`CreateOptions::reflink_mode`](crate::types::CreateOptions::reflink_mode).
+    pub reflink_mode: ReflinkMode,
+}
+
+impl Default for SetupContext {
+    fn default() -> Self {
+        Self {
+            reflink_mode: ReflinkMode::default(),
+        }
+    }
+}
+
+impl SetupContext {
+    /// Construct a `SetupContext` with an explicit reflink mode.
+    pub fn new(reflink_mode: ReflinkMode) -> Self {
+        Self { reflink_mode }
     }
 }
 

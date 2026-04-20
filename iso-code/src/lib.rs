@@ -13,7 +13,7 @@ pub mod types;
 pub mod util;
 
 // Re-export all public types at the crate root
-pub use adapter::EcosystemAdapter;
+pub use adapter::{EcosystemAdapter, SetupContext};
 pub use error::WorktreeError;
 pub use manager::Manager;
 pub use types::{
