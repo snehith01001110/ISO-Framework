@@ -98,20 +98,12 @@ pub trait EcosystemAdapter: Send + Sync {
 /// (e.g. [`ReflinkMode`] for file-copying adapters). New per-call options
 /// are added as fields here — not as new method parameters — so the trait
 /// signature stays stable as the caller's needs evolve.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 #[non_exhaustive]
 pub struct SetupContext {
     /// Copy-on-Write mode for any file-copying the adapter performs.
     /// Mirrors [`CreateOptions::reflink_mode`](crate::types::CreateOptions::reflink_mode).
     pub reflink_mode: ReflinkMode,
-}
-
-impl Default for SetupContext {
-    fn default() -> Self {
-        Self {
-            reflink_mode: ReflinkMode::default(),
-        }
-    }
 }
 
 impl SetupContext {
