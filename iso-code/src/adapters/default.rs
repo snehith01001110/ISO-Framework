@@ -55,19 +55,46 @@ impl EcosystemAdapter for DefaultAdapter {
             let src = source_worktree.join(rel);
             let dst = worktree_path.join(rel);
 
-            if !src.exists() {
-                eprintln!(
-                    "[iso-code] WARNING: DefaultAdapter skipping missing source file: {}",
-                    src.display()
-                );
-                continue;
-            }
+            let src_meta = match std::fs::symlink_metadata(&src) {
+                Ok(m) => m,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    eprintln!(
+                        "[iso-code] WARNING: DefaultAdapter skipping missing source file: {}",
+                        src.display()
+                    );
+                    continue;
+                }
+                Err(e) => return Err(WorktreeError::Io(e)),
+            };
 
             if let Some(parent) = dst.parent() {
                 std::fs::create_dir_all(parent).map_err(WorktreeError::Io)?;
             }
 
+            // Preserve symlinks instead of materializing their targets. Common
+            // case: `.env -> /shared/team-secrets.env`. Copying would give every
+            // worktree a detached snapshot; re-linking keeps the shared-source
+            // semantics the user set up. Unix-only — Windows file symlinks
+            // require Developer Mode / admin, so we fall through to a copy.
+            #[cfg(unix)]
+            if src_meta.file_type().is_symlink() {
+                let target = std::fs::read_link(&src).map_err(WorktreeError::Io)?;
+                std::os::unix::fs::symlink(&target, &dst).map_err(WorktreeError::Io)?;
+                continue;
+            }
+
             platform::copy_file(&src, &dst, ctx.reflink_mode)?;
+
+            // Linux FICLONE clones data blocks but not mode bits, so the
+            // destination of a successful reflink on btrfs/XFS-CoW would
+            // otherwise get umask-default perms instead of the source's.
+            // macOS clonefile and std::fs::copy already preserve perms;
+            // re-applying here is idempotent and keeps behavior uniform.
+            #[cfg(unix)]
+            {
+                let perms = std::fs::metadata(&src).map_err(WorktreeError::Io)?.permissions();
+                std::fs::set_permissions(&dst, perms).map_err(WorktreeError::Io)?;
+            }
         }
         Ok(())
     }
@@ -209,6 +236,59 @@ mod tests {
         assert_eq!(
             fs::read_to_string(dst.path().join(".env")).unwrap(),
             "x=1"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn setup_preserves_symlink_instead_of_materializing() {
+        let (src, dst) = make_pair();
+        // Shared target lives outside both worktrees, mimicking
+        // `.env -> /shared/team-secrets.env`.
+        let shared = TempDir::new().unwrap();
+        let shared_target = shared.path().join("team-secrets.env");
+        fs::write(&shared_target, "SECRET=v1").unwrap();
+
+        std::os::unix::fs::symlink(&shared_target, src.path().join(".env")).unwrap();
+
+        let adapter = DefaultAdapter::new(vec![PathBuf::from(".env")]);
+        adapter
+            .setup(dst.path(), src.path(), &SetupContext::default())
+            .unwrap();
+
+        let dst_link = dst.path().join(".env");
+        let dst_meta = fs::symlink_metadata(&dst_link).unwrap();
+        assert!(
+            dst_meta.file_type().is_symlink(),
+            "destination must be a symlink, not a materialized copy"
+        );
+        assert_eq!(fs::read_link(&dst_link).unwrap(), shared_target);
+
+        // Mutating the shared target must be visible through the new worktree —
+        // proves we copied the link, not the content.
+        fs::write(&shared_target, "SECRET=v2").unwrap();
+        assert_eq!(fs::read_to_string(&dst_link).unwrap(), "SECRET=v2");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn setup_preserves_broken_symlink() {
+        let (src, dst) = make_pair();
+        // Target doesn't exist — broken link. The user's setup might fix it
+        // later (mount a share, create the file). Preserve intent.
+        let missing_target = src.path().join("not-yet-there");
+        std::os::unix::fs::symlink(&missing_target, src.path().join(".env")).unwrap();
+
+        let adapter = DefaultAdapter::new(vec![PathBuf::from(".env")]);
+        adapter
+            .setup(dst.path(), src.path(), &SetupContext::default())
+            .unwrap();
+
+        let dst_meta = fs::symlink_metadata(dst.path().join(".env")).unwrap();
+        assert!(dst_meta.file_type().is_symlink());
+        assert_eq!(
+            fs::read_link(dst.path().join(".env")).unwrap(),
+            missing_target
         );
     }
 
