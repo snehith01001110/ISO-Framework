@@ -227,8 +227,7 @@ mod tests {
             port: String::new(),
             uuid: "u".to_string(),
         };
-        let m: std::collections::HashMap<&str, &str> =
-            env.as_pairs().into_iter().collect();
+        let m: std::collections::HashMap<&str, &str> = env.as_pairs().into_iter().collect();
         assert_eq!(m["CCMANAGER_WORKTREE_PATH"], m["ISO_CODE_PATH"]);
         assert_eq!(m["CCMANAGER_BRANCH_NAME"], m["ISO_CODE_BRANCH"]);
         assert_eq!(m["CCMANAGER_GIT_ROOT"], m["ISO_CODE_REPO"]);

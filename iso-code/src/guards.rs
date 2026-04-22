@@ -40,10 +40,7 @@ pub(crate) fn check_disk_space(target_path: &Path, required_mb: u64) -> Result<(
         target_path.to_path_buf()
     } else {
         // If target doesn't exist yet, check parent
-        target_path
-            .parent()
-            .unwrap_or(Path::new("/"))
-            .to_path_buf()
+        target_path.parent().unwrap_or(Path::new("/")).to_path_buf()
     };
 
     let disks = Disks::new_with_refreshed_list();
@@ -154,16 +151,13 @@ pub(crate) fn check_not_network_filesystem(path: &Path) -> Result<(), WorktreeEr
     // Platform-specific detection
     #[cfg(target_os = "macos")]
     {
-        let path_cstr = std::ffi::CString::new(
-            path.to_str().unwrap_or("/"),
-        )
-        .unwrap_or_else(|_| std::ffi::CString::new("/").unwrap());
+        let path_cstr = std::ffi::CString::new(path.to_str().unwrap_or("/"))
+            .unwrap_or_else(|_| std::ffi::CString::new("/").unwrap());
 
         unsafe {
             let mut stat: libc::statfs = std::mem::zeroed();
             if libc::statfs(path_cstr.as_ptr(), &mut stat) == 0 {
-                let fstype = std::ffi::CStr::from_ptr(stat.f_fstypename.as_ptr())
-                    .to_string_lossy();
+                let fstype = std::ffi::CStr::from_ptr(stat.f_fstypename.as_ptr()).to_string_lossy();
                 let network_types = ["nfs", "smbfs", "afpfs", "cifs", "webdav"];
                 if network_types.iter().any(|t| fstype.eq_ignore_ascii_case(t)) {
                     return Err(WorktreeError::NetworkFilesystem {
@@ -185,9 +179,7 @@ pub(crate) fn check_not_network_filesystem(path: &Path) -> Result<(), WorktreeEr
                 if parts.len() >= 3 {
                     let mount_point = parts[1];
                     let fs_type = parts[2];
-                    if path_str.starts_with(mount_point)
-                        && network_types.contains(&fs_type)
-                    {
+                    if path_str.starts_with(mount_point) && network_types.contains(&fs_type) {
                         return Err(WorktreeError::NetworkFilesystem {
                             mount_point: std::path::PathBuf::from(mount_point),
                         });
@@ -277,7 +269,8 @@ pub(crate) fn check_total_disk_usage(
         return Ok(());
     }
 
-    let total_bytes = crate::util::dir_size_skipping_git(worktrees.iter().map(|wt| wt.path.as_path()));
+    let total_bytes =
+        crate::util::dir_size_skipping_git(worktrees.iter().map(|wt| wt.path.as_path()));
 
     if let Some(limit) = max_bytes {
         if total_bytes > limit {
@@ -379,7 +372,6 @@ pub(crate) fn check_git_crypt_pre_create(repo: &Path) -> Result<GitCryptStatus, 
     Ok(GitCryptStatus::Unlocked)
 }
 
-
 /// Arguments for `run_pre_create_guards`. Keeps the guard runner readable
 /// and maps directly onto Config / CreateOptions fields so wiring new knobs
 /// doesn't require touching every call site.
@@ -401,7 +393,9 @@ pub(crate) struct PreCreateArgs<'a> {
 /// Run every pre-create guard in order. The ordering is load-bearing: later
 /// guards assume invariants established by earlier ones. Returns the detected
 /// [`GitCryptStatus`] so callers can decide whether to proceed.
-pub(crate) fn run_pre_create_guards(args: PreCreateArgs<'_>) -> Result<GitCryptStatus, WorktreeError> {
+pub(crate) fn run_pre_create_guards(
+    args: PreCreateArgs<'_>,
+) -> Result<GitCryptStatus, WorktreeError> {
     // 1. Branch not already checked out
     check_branch_not_checked_out(args.repo, args.branch, args.caps)?;
 
@@ -635,7 +629,9 @@ pub(crate) fn five_step_unmerged_check(
         if let Ok(out) = step4 {
             if out.status.success() {
                 let stdout = String::from_utf8_lossy(&out.stdout);
-                let has_plus_lines = stdout.lines().any(|l| l.starts_with("+ ") || l.starts_with('+'));
+                let has_plus_lines = stdout
+                    .lines()
+                    .any(|l| l.starts_with("+ ") || l.starts_with('+'));
                 if !has_plus_lines {
                     // All patches are upstream (only '-' lines or empty)
                     return Ok(());
@@ -697,7 +693,10 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            WorktreeError::RateLimitExceeded { current: 20, max: 20 }
+            WorktreeError::RateLimitExceeded {
+                current: 20,
+                max: 20
+            }
         ));
     }
 
@@ -714,13 +713,17 @@ mod tests {
         let path = PathBuf::from("/tmp");
         let result = check_path_not_exists(&path);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), WorktreeError::WorktreePathExists(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            WorktreeError::WorktreePathExists(_)
+        ));
     }
 
     /// QA-G-005: empty worktree list → nested check trivially passes.
     #[test]
     fn test_check_not_nested_no_worktrees() {
-        let result = check_not_nested_worktree(Path::new("/tmp/test"), Path::new("/some/repo"), &[]);
+        let result =
+            check_not_nested_worktree(Path::new("/tmp/test"), Path::new("/some/repo"), &[]);
         assert!(result.is_ok());
     }
 
@@ -744,7 +747,8 @@ mod tests {
         )];
         let candidate = base.join("nested").join("wt");
         // Use a repo_root that differs from the existing worktree so it's not skipped
-        let result = check_not_nested_worktree(&candidate, Path::new("/some/other/repo"), &existing);
+        let result =
+            check_not_nested_worktree(&candidate, Path::new("/some/other/repo"), &existing);
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
@@ -784,7 +788,10 @@ mod tests {
         // 999 TB requirement should fail
         let result = check_disk_space(Path::new("/tmp"), 999_000_000);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), WorktreeError::DiskSpaceLow { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            WorktreeError::DiskSpaceLow { .. }
+        ));
     }
 
     /// QA-G-012: repository without git-crypt returns NotUsed.
@@ -837,7 +844,10 @@ mod tests {
         );
         let result = check_not_locked(&handle);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), WorktreeError::WorktreeLocked { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            WorktreeError::WorktreeLocked { .. }
+        ));
     }
 
     /// QA-G-010: with no max_bytes and no threshold, the aggregate-disk check passes trivially.

@@ -71,8 +71,7 @@ fn hook_claude_code_emits_single_absolute_path_on_stdout() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let stdout = String::from_utf8(output.stdout.clone())
-        .expect("stdout must be valid UTF-8");
+    let stdout = String::from_utf8(output.stdout.clone()).expect("stdout must be valid UTF-8");
     assert!(
         stdout.ends_with('\n'),
         "stdout must be newline-terminated, got {stdout:?}"

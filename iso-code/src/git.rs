@@ -12,14 +12,13 @@ use crate::types::{GitCapabilities, GitVersion, WorktreeHandle, WorktreeState};
 /// - "git version 2.43.0.windows.1"
 pub fn parse_git_version(output: &str) -> Result<GitVersion, WorktreeError> {
     // Extract the version string after "git version "
-    let version_str = output
-        .trim()
-        .strip_prefix("git version ")
-        .ok_or_else(|| WorktreeError::GitCommandFailed {
+    let version_str = output.trim().strip_prefix("git version ").ok_or_else(|| {
+        WorktreeError::GitCommandFailed {
             command: "git --version".to_string(),
             stderr: format!("unexpected output format: {output}"),
             exit_code: 0,
-        })?;
+        }
+    })?;
 
     // Take the first space-delimited token (drops "(Apple Git-146)" suffix)
     let version_token = version_str.split_whitespace().next().unwrap_or(version_str);
@@ -34,32 +33,52 @@ pub fn parse_git_version(output: &str) -> Result<GitVersion, WorktreeError> {
         });
     }
 
-    let major = parts[0].parse::<u32>().map_err(|_| WorktreeError::GitCommandFailed {
-        command: "git --version".to_string(),
-        stderr: format!("cannot parse major version: {}", parts[0]),
-        exit_code: 0,
-    })?;
-    let minor = parts[1].parse::<u32>().map_err(|_| WorktreeError::GitCommandFailed {
-        command: "git --version".to_string(),
-        stderr: format!("cannot parse minor version: {}", parts[1]),
-        exit_code: 0,
-    })?;
-    let patch = parts[2].parse::<u32>().map_err(|_| WorktreeError::GitCommandFailed {
-        command: "git --version".to_string(),
-        stderr: format!("cannot parse patch version: {}", parts[2]),
-        exit_code: 0,
-    })?;
+    let major = parts[0]
+        .parse::<u32>()
+        .map_err(|_| WorktreeError::GitCommandFailed {
+            command: "git --version".to_string(),
+            stderr: format!("cannot parse major version: {}", parts[0]),
+            exit_code: 0,
+        })?;
+    let minor = parts[1]
+        .parse::<u32>()
+        .map_err(|_| WorktreeError::GitCommandFailed {
+            command: "git --version".to_string(),
+            stderr: format!("cannot parse minor version: {}", parts[1]),
+            exit_code: 0,
+        })?;
+    let patch = parts[2]
+        .parse::<u32>()
+        .map_err(|_| WorktreeError::GitCommandFailed {
+            command: "git --version".to_string(),
+            stderr: format!("cannot parse patch version: {}", parts[2]),
+            exit_code: 0,
+        })?;
 
-    Ok(GitVersion { major, minor, patch })
+    Ok(GitVersion {
+        major,
+        minor,
+        patch,
+    })
 }
 
 /// Build a `GitCapabilities` struct from a detected `GitVersion`.
 pub fn detect_capabilities(version: &GitVersion) -> GitCapabilities {
-    let has_repair = *version >= GitVersion::HAS_REPAIR;               // 2.30+
-    let has_list_nul = *version >= GitVersion::HAS_LIST_NUL;           // 2.36+
+    let has_repair = *version >= GitVersion::HAS_REPAIR; // 2.30+
+    let has_list_nul = *version >= GitVersion::HAS_LIST_NUL; // 2.36+
     let has_merge_tree_write = *version >= GitVersion::HAS_MERGE_TREE_WRITE; // 2.38+
-    let has_orphan = *version >= GitVersion { major: 2, minor: 42, patch: 0 }; // 2.42+
-    let has_relative_paths = *version >= GitVersion { major: 2, minor: 48, patch: 0 }; // 2.48+
+    let has_orphan = *version
+        >= GitVersion {
+            major: 2,
+            minor: 42,
+            patch: 0,
+        }; // 2.42+
+    let has_relative_paths = *version
+        >= GitVersion {
+            major: 2,
+            minor: 48,
+            patch: 0,
+        }; // 2.48+
 
     GitCapabilities::new(
         version.clone(),
@@ -152,10 +171,7 @@ pub fn parse_worktree_list_porcelain(
                 head_sha = String::from_utf8_lossy(sha).into_owned();
             } else if let Some(b) = strip_prefix_bytes(field, b"branch ") {
                 let s = String::from_utf8_lossy(b);
-                branch = s
-                    .strip_prefix("refs/heads/")
-                    .unwrap_or(&s)
-                    .to_string();
+                branch = s.strip_prefix("refs/heads/").unwrap_or(&s).to_string();
             } else if field == b"detached" {
                 is_detached = true;
             } else if field == b"bare" {
@@ -288,7 +304,10 @@ pub fn run_worktree_list(
 
     if !output.status.success() {
         return Err(WorktreeError::GitCommandFailed {
-            command: format!("git worktree list --porcelain{}", if caps.has_list_nul { " -z" } else { "" }),
+            command: format!(
+                "git worktree list --porcelain{}",
+                if caps.has_list_nul { " -z" } else { "" }
+            ),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
             exit_code: output.status.code().unwrap_or(-1),
         });
@@ -483,25 +502,53 @@ mod tests {
     #[test]
     fn parse_standard_version() {
         let v = parse_git_version("git version 2.43.0").unwrap();
-        assert_eq!(v, GitVersion { major: 2, minor: 43, patch: 0 });
+        assert_eq!(
+            v,
+            GitVersion {
+                major: 2,
+                minor: 43,
+                patch: 0
+            }
+        );
     }
 
     #[test]
     fn parse_apple_version() {
         let v = parse_git_version("git version 2.39.3 (Apple Git-146)").unwrap();
-        assert_eq!(v, GitVersion { major: 2, minor: 39, patch: 3 });
+        assert_eq!(
+            v,
+            GitVersion {
+                major: 2,
+                minor: 39,
+                patch: 3
+            }
+        );
     }
 
     #[test]
     fn parse_windows_version() {
         let v = parse_git_version("git version 2.43.0.windows.1").unwrap();
-        assert_eq!(v, GitVersion { major: 2, minor: 43, patch: 0 });
+        assert_eq!(
+            v,
+            GitVersion {
+                major: 2,
+                minor: 43,
+                patch: 0
+            }
+        );
     }
 
     #[test]
     fn parse_with_trailing_newline() {
         let v = parse_git_version("git version 2.20.0\n").unwrap();
-        assert_eq!(v, GitVersion { major: 2, minor: 20, patch: 0 });
+        assert_eq!(
+            v,
+            GitVersion {
+                major: 2,
+                minor: 20,
+                patch: 0
+            }
+        );
     }
 
     #[test]
@@ -513,13 +560,21 @@ mod tests {
 
     #[test]
     fn version_2_19_is_too_old() {
-        let v = GitVersion { major: 2, minor: 19, patch: 9 };
+        let v = GitVersion {
+            major: 2,
+            minor: 19,
+            patch: 9,
+        };
         assert!(v < GitVersion::MINIMUM);
     }
 
     #[test]
     fn version_2_20_is_ok() {
-        let v = GitVersion { major: 2, minor: 20, patch: 0 };
+        let v = GitVersion {
+            major: 2,
+            minor: 20,
+            patch: 0,
+        };
         assert!(v >= GitVersion::MINIMUM);
     }
 
@@ -527,7 +582,11 @@ mod tests {
 
     #[test]
     fn capabilities_at_2_20() {
-        let caps = detect_capabilities(&GitVersion { major: 2, minor: 20, patch: 0 });
+        let caps = detect_capabilities(&GitVersion {
+            major: 2,
+            minor: 20,
+            patch: 0,
+        });
         assert!(!caps.has_repair);
         assert!(!caps.has_list_nul);
         assert!(!caps.has_merge_tree_write);
@@ -537,27 +596,43 @@ mod tests {
 
     #[test]
     fn capabilities_at_2_29_no_repair() {
-        let caps = detect_capabilities(&GitVersion { major: 2, minor: 29, patch: 9 });
+        let caps = detect_capabilities(&GitVersion {
+            major: 2,
+            minor: 29,
+            patch: 9,
+        });
         assert!(!caps.has_repair);
     }
 
     #[test]
     fn capabilities_at_2_30_has_repair() {
-        let caps = detect_capabilities(&GitVersion { major: 2, minor: 30, patch: 0 });
+        let caps = detect_capabilities(&GitVersion {
+            major: 2,
+            minor: 30,
+            patch: 0,
+        });
         assert!(caps.has_repair);
         assert!(!caps.has_list_nul);
     }
 
     #[test]
     fn capabilities_at_2_35_no_list_nul() {
-        let caps = detect_capabilities(&GitVersion { major: 2, minor: 35, patch: 9 });
+        let caps = detect_capabilities(&GitVersion {
+            major: 2,
+            minor: 35,
+            patch: 9,
+        });
         assert!(caps.has_repair);
         assert!(!caps.has_list_nul);
     }
 
     #[test]
     fn capabilities_at_2_36_has_list_nul() {
-        let caps = detect_capabilities(&GitVersion { major: 2, minor: 36, patch: 0 });
+        let caps = detect_capabilities(&GitVersion {
+            major: 2,
+            minor: 36,
+            patch: 0,
+        });
         assert!(caps.has_repair);
         assert!(caps.has_list_nul);
         assert!(!caps.has_merge_tree_write);
@@ -565,21 +640,33 @@ mod tests {
 
     #[test]
     fn capabilities_at_2_38_has_merge_tree() {
-        let caps = detect_capabilities(&GitVersion { major: 2, minor: 38, patch: 0 });
+        let caps = detect_capabilities(&GitVersion {
+            major: 2,
+            minor: 38,
+            patch: 0,
+        });
         assert!(caps.has_merge_tree_write);
         assert!(!caps.has_orphan);
     }
 
     #[test]
     fn capabilities_at_2_42_has_orphan() {
-        let caps = detect_capabilities(&GitVersion { major: 2, minor: 42, patch: 0 });
+        let caps = detect_capabilities(&GitVersion {
+            major: 2,
+            minor: 42,
+            patch: 0,
+        });
         assert!(caps.has_orphan);
         assert!(!caps.has_relative_paths);
     }
 
     #[test]
     fn capabilities_at_2_48_has_relative_paths() {
-        let caps = detect_capabilities(&GitVersion { major: 2, minor: 48, patch: 0 });
+        let caps = detect_capabilities(&GitVersion {
+            major: 2,
+            minor: 48,
+            patch: 0,
+        });
         assert!(caps.has_relative_paths);
         // All other caps should be true too
         assert!(caps.has_repair);
@@ -609,9 +696,15 @@ mod tests {
         let output = b"worktree /home/user/project\nHEAD abc1234abc1234abc1234abc1234abc1234abc1234\nbranch refs/heads/main\n\n";
         let result = parse_worktree_list_porcelain(output, false).unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].path, std::path::PathBuf::from("/home/user/project"));
+        assert_eq!(
+            result[0].path,
+            std::path::PathBuf::from("/home/user/project")
+        );
         assert_eq!(result[0].branch, "main");
-        assert_eq!(result[0].base_commit, "abc1234abc1234abc1234abc1234abc1234abc1234");
+        assert_eq!(
+            result[0].base_commit,
+            "abc1234abc1234abc1234abc1234abc1234abc1234"
+        );
         assert_eq!(result[0].state, WorktreeState::Active);
     }
 
@@ -674,7 +767,10 @@ mod tests {
         let output = b"worktree /home/user/my project\0HEAD aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\0branch refs/heads/main\0\0";
         let result = parse_worktree_list_porcelain(output, true).unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].path, std::path::PathBuf::from("/home/user/my project"));
+        assert_eq!(
+            result[0].path,
+            std::path::PathBuf::from("/home/user/my project")
+        );
     }
 
     #[cfg(unix)]
@@ -684,7 +780,9 @@ mod tests {
         let mut output: Vec<u8> = Vec::new();
         output.extend_from_slice(b"worktree /tmp/wt-");
         output.push(0xff);
-        output.extend_from_slice(b"-end\0HEAD aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\0branch refs/heads/x\0\0");
+        output.extend_from_slice(
+            b"-end\0HEAD aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\0branch refs/heads/x\0\0",
+        );
 
         let result = parse_worktree_list_porcelain(&output, true).unwrap();
         assert_eq!(result.len(), 1);

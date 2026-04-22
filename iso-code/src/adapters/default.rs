@@ -92,7 +92,9 @@ impl EcosystemAdapter for DefaultAdapter {
             // re-applying here is idempotent and keeps behavior uniform.
             #[cfg(unix)]
             {
-                let perms = std::fs::metadata(&src).map_err(WorktreeError::Io)?.permissions();
+                let perms = std::fs::metadata(&src)
+                    .map_err(WorktreeError::Io)?
+                    .permissions();
                 std::fs::set_permissions(&dst, perms).map_err(WorktreeError::Io)?;
             }
         }
@@ -142,10 +144,7 @@ mod tests {
     fn setup_skips_missing_source_without_error() {
         let (src, dst) = make_pair();
         // No files in src.
-        let adapter = DefaultAdapter::new(vec![
-            PathBuf::from(".env"),
-            PathBuf::from(".env.local"),
-        ]);
+        let adapter = DefaultAdapter::new(vec![PathBuf::from(".env"), PathBuf::from(".env.local")]);
 
         adapter
             .setup(dst.path(), src.path(), &SetupContext::default())
@@ -174,10 +173,7 @@ mod tests {
     #[test]
     fn detect_returns_false_when_no_files_exist() {
         let src = TempDir::new().unwrap();
-        let adapter = DefaultAdapter::new(vec![
-            PathBuf::from(".env"),
-            PathBuf::from(".env.local"),
-        ]);
+        let adapter = DefaultAdapter::new(vec![PathBuf::from(".env"), PathBuf::from(".env.local")]);
         assert!(!adapter.detect(src.path()));
     }
 
@@ -187,8 +183,8 @@ mod tests {
         fs::write(src.path().join(".env.local"), "").unwrap();
 
         let adapter = DefaultAdapter::new(vec![
-            PathBuf::from(".env"),         // missing
-            PathBuf::from(".env.local"),   // present
+            PathBuf::from(".env"),       // missing
+            PathBuf::from(".env.local"), // present
         ]);
         assert!(adapter.detect(src.path()));
     }
@@ -233,10 +229,7 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(
-            fs::read_to_string(dst.path().join(".env")).unwrap(),
-            "x=1"
-        );
+        assert_eq!(fs::read_to_string(dst.path().join(".env")).unwrap(), "x=1");
     }
 
     #[cfg(unix)]

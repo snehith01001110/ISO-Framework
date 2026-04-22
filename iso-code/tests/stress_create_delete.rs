@@ -211,10 +211,7 @@ fn stress_100_cycles_sigkill() {
     );
 
     // state.json must be parseable.
-    let raw = std::fs::read(
-        iso_code::state::state_json_path(&repo_path, None),
-    )
-    .unwrap_or_default();
+    let raw = std::fs::read(iso_code::state::state_json_path(&repo_path, None)).unwrap_or_default();
     if !raw.is_empty() {
         serde_json::from_slice::<serde_json::Value>(&raw)
             .expect("state.json must be valid JSON after stress");
@@ -269,11 +266,16 @@ fn stress_sigkill_mid_operation_recovery() {
     let mgr = Manager::new(&repo_path, Config::default())
         .expect("Manager::new() after sigkill must succeed");
     let (handle, _) = mgr
-        .create("post-kill", repo_path.join("post-kill-wt"), CreateOptions::default())
+        .create(
+            "post-kill",
+            repo_path.join("post-kill-wt"),
+            CreateOptions::default(),
+        )
         .expect("create after sigkill must succeed");
     let mut o = DeleteOptions::default();
     o.force = true;
-    mgr.delete(&handle, o).expect("delete after sigkill must succeed");
+    mgr.delete(&handle, o)
+        .expect("delete after sigkill must succeed");
     assert!(
         start.elapsed() < Duration::from_secs(10),
         "full recovery + lifecycle should be fast: took {:?}",
@@ -322,7 +324,11 @@ fn stress_state_consistency_after_external_removal() {
     // Recreation on the same branch must succeed — the library must have
     // released any state-side references that would block it.
     let (h2, _) = mgr2
-        .create("ext-rm", repo.path().join("external-removal-wt-2"), CreateOptions::default())
+        .create(
+            "ext-rm",
+            repo.path().join("external-removal-wt-2"),
+            CreateOptions::default(),
+        )
         .expect("recreate after external removal must succeed");
     let mut f = DeleteOptions::default();
     f.force = true;

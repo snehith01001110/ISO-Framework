@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create with options
     let mut opts = CreateOptions::default();
     opts.base = Some("main".to_string()); // branch from main instead of HEAD
-    opts.lock = true;                     // lock immediately after creation
+    opts.lock = true; // lock immediately after creation
     opts.lock_reason = Some("automated test run".to_string());
     opts.reflink_mode = ReflinkMode::Preferred;
     opts.allocate_port = true;

@@ -133,7 +133,11 @@ fn regression_qa_r_003_gc_force_preserves_active_worktrees_with_commits() {
             "gc force must not remove active worktree with unique commits: {}",
             h.path.display()
         );
-        assert!(h.path.exists(), "worktree dir must survive gc: {}", h.path.display());
+        assert!(
+            h.path.exists(),
+            "worktree dir must survive gc: {}",
+            h.path.display()
+        );
     }
 
     // All three branches must still exist
@@ -163,7 +167,11 @@ fn regression_qa_r_004_git_crypt_locked_auto_cleans() {
     // Fake a git-crypt configuration: .gitattributes flagging *.secret,
     // no key file in .git/git-crypt/keys/default, a *.secret file with the
     // git-crypt magic header in place (indicating encrypted content).
-    std::fs::write(repo.path().join(".gitattributes"), "*.secret filter=git-crypt diff=git-crypt\n").unwrap();
+    std::fs::write(
+        repo.path().join(".gitattributes"),
+        "*.secret filter=git-crypt diff=git-crypt\n",
+    )
+    .unwrap();
     run_git(repo.path(), &["add", ".gitattributes"]);
     run_git(repo.path(), &["commit", "-m", "add git-crypt attributes"]);
 
@@ -331,11 +339,7 @@ fn regression_qa_r_009_default_create_does_not_copy_node_modules() {
 
     // Simulate a JS repo: committed package.json plus an untracked, .gitignored
     // node_modules directory (the common real-world pattern).
-    std::fs::write(
-        repo.path().join(".gitignore"),
-        "node_modules/\n",
-    )
-    .unwrap();
+    std::fs::write(repo.path().join(".gitignore"), "node_modules/\n").unwrap();
     std::fs::write(
         repo.path().join("package.json"),
         r#"{ "name": "x", "version": "0.0.1" }"#,

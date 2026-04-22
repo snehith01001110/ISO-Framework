@@ -86,8 +86,15 @@ fn qa_v_006_locked_prunable_absent_below_231() {
 #[test]
 fn qa_v_007_lock_flag_is_always_present_on_supported_versions() {
     let minimum = GitVersion::MINIMUM;
-    let flag_introduced = GitVersion { major: 2, minor: 17, patch: 0 };
-    assert!(minimum >= flag_introduced, "--lock flag must be present at our hard minimum");
+    let flag_introduced = GitVersion {
+        major: 2,
+        minor: 17,
+        patch: 0,
+    };
+    assert!(
+        minimum >= flag_introduced,
+        "--lock flag must be present at our hard minimum"
+    );
 }
 
 /// QA-V-008: Hard minimum version check — git 2.19 must be refused with a
@@ -118,13 +125,62 @@ fn qa_v_009_git_not_found_error_variant_exists() {
 fn mock_git_fixtures_report_their_tagged_versions() {
     use std::process::Command;
     for (tag, expected) in [
-        ("2.19", GitVersion { major: 2, minor: 19, patch: 0 }),
-        ("2.20", GitVersion { major: 2, minor: 20, patch: 0 }),
-        ("2.30", GitVersion { major: 2, minor: 30, patch: 0 }),
-        ("2.35", GitVersion { major: 2, minor: 35, patch: 1 }),
-        ("2.37", GitVersion { major: 2, minor: 37, patch: 4 }),
-        ("2.41", GitVersion { major: 2, minor: 41, patch: 0 }),
-        ("2.47", GitVersion { major: 2, minor: 47, patch: 2 }),
+        (
+            "2.19",
+            GitVersion {
+                major: 2,
+                minor: 19,
+                patch: 0,
+            },
+        ),
+        (
+            "2.20",
+            GitVersion {
+                major: 2,
+                minor: 20,
+                patch: 0,
+            },
+        ),
+        (
+            "2.30",
+            GitVersion {
+                major: 2,
+                minor: 30,
+                patch: 0,
+            },
+        ),
+        (
+            "2.35",
+            GitVersion {
+                major: 2,
+                minor: 35,
+                patch: 1,
+            },
+        ),
+        (
+            "2.37",
+            GitVersion {
+                major: 2,
+                minor: 37,
+                patch: 4,
+            },
+        ),
+        (
+            "2.41",
+            GitVersion {
+                major: 2,
+                minor: 41,
+                patch: 0,
+            },
+        ),
+        (
+            "2.47",
+            GitVersion {
+                major: 2,
+                minor: 47,
+                patch: 2,
+            },
+        ),
     ] {
         let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures/mock-git")

@@ -3,10 +3,10 @@ use std::path::Path;
 use crate::error::WorktreeError;
 use crate::types::{CopyOutcome, ReflinkMode};
 
-#[cfg(target_os = "macos")]
-mod macos;
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(target_os = "macos")]
+mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
 
@@ -17,11 +17,7 @@ mod windows;
 /// - `Disabled`: always use standard copy.
 ///
 /// Returns the `CopyOutcome` describing what actually happened.
-pub fn copy_file(
-    src: &Path,
-    dst: &Path,
-    mode: ReflinkMode,
-) -> Result<CopyOutcome, WorktreeError> {
+pub fn copy_file(src: &Path, dst: &Path, mode: ReflinkMode) -> Result<CopyOutcome, WorktreeError> {
     match mode {
         ReflinkMode::Required => {
             reflink_copy::reflink(src, dst).map_err(|_| WorktreeError::ReflinkNotSupported)?;
