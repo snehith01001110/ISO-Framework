@@ -188,7 +188,10 @@ fn run_list(args: &[String]) {
 
 /// `wt create <branch> <path>`
 fn run_create(args: &[String]) {
-    if args.len() < 2 {
+    // Exact count, not lower bound: an unquoted path with spaces gets split
+    // by the shell into multiple argv entries. A `<` check silently drops
+    // the trailing chunks and surfaces a misleading downstream error.
+    if args.len() != 2 {
         eprintln!("[iso-code] Usage: wt create <branch> <path>");
         process::exit(1);
     }
@@ -218,7 +221,7 @@ fn run_create(args: &[String]) {
 
 /// `wt delete <path>`
 fn run_delete(args: &[String]) {
-    if args.is_empty() {
+    if args.len() != 1 {
         eprintln!("[iso-code] Usage: wt delete <path>");
         process::exit(1);
     }
@@ -265,7 +268,7 @@ fn run_delete(args: &[String]) {
 
 /// `wt attach <path>` — register an existing external worktree under iso-code management.
 fn run_attach(args: &[String]) {
-    if args.is_empty() {
+    if args.len() != 1 {
         eprintln!("[iso-code] Usage: wt attach <path>");
         process::exit(1);
     }
