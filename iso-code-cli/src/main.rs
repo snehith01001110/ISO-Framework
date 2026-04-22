@@ -188,9 +188,6 @@ fn run_list(args: &[String]) {
 
 /// `wt create <branch> <path>`
 fn run_create(args: &[String]) {
-    // Exact count, not lower bound: an unquoted path with spaces gets split
-    // by the shell into multiple argv entries. A `<` check silently drops
-    // the trailing chunks and surfaces a misleading downstream error.
     if args.len() != 2 {
         eprintln!("[iso-code] Usage: wt create <branch> <path>");
         process::exit(1);
