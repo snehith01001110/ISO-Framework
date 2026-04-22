@@ -62,7 +62,9 @@ fn stress_gc_small_scale() {
 
     // Cleanup regular worktrees
     for h in handles {
-        let mut o = DeleteOptions::default(); o.force = true; let _ = mgr.delete(&h, o);
+        let mut o = DeleteOptions::default();
+        o.force = true;
+        let _ = mgr.delete(&h, o);
     }
     // Cleanup locked worktrees
     for h in locked_handles {
@@ -87,13 +89,7 @@ fn stress_gc_1000_orphans() {
         let branch = format!("orphan-{i}");
         let wt_path = repo.path().join(format!("orphan-wt-{i}"));
         Command::new("git")
-            .args([
-                "worktree",
-                "add",
-                wt_path.to_str().unwrap(),
-                "-b",
-                &branch,
-            ])
+            .args(["worktree", "add", wt_path.to_str().unwrap(), "-b", &branch])
             .current_dir(repo.path())
             .output()
             .unwrap();
@@ -107,11 +103,17 @@ fn stress_gc_1000_orphans() {
 
     // GC dry run — should identify orphaned/prunable worktrees
     let start = std::time::Instant::now();
-    let mut go = GcOptions::default(); go.dry_run = true; go.force = true; let report = mgr.gc(go).unwrap();
+    let mut go = GcOptions::default();
+    go.dry_run = true;
+    go.force = true;
+    let report = mgr.gc(go).unwrap();
     let elapsed = start.elapsed();
 
     eprintln!("GC of {} worktrees took {:?}", list.len(), elapsed);
-    assert!(elapsed.as_secs() < 60, "GC should complete within 60 seconds");
+    assert!(
+        elapsed.as_secs() < 60,
+        "GC should complete within 60 seconds"
+    );
 
     // Cleanup
     for wt_path in &wt_paths {
@@ -149,7 +151,11 @@ fn stress_gc_locked_worktrees_untouched() {
     let report = mgr.gc(o).unwrap();
 
     for p in &locked_paths {
-        assert!(p.exists(), "locked worktree must still exist after gc: {}", p.display());
+        assert!(
+            p.exists(),
+            "locked worktree must still exist after gc: {}",
+            p.display()
+        );
         assert!(
             !report.removed.contains(p),
             "locked worktree must not be in removed: {}",

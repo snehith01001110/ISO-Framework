@@ -98,13 +98,18 @@ fn run_hook(args: &[String]) {
 
     let repo_root = PathBuf::from(&payload.cwd);
 
-    eprintln!("[iso-code] hook received: session={} event={} branch={}",
-        payload.session_id, payload.hook_event_name, payload.name);
+    eprintln!(
+        "[iso-code] hook received: session={} event={} branch={}",
+        payload.session_id, payload.hook_event_name, payload.name
+    );
 
     // Reject traversal tokens in the branch before we use it to build a path.
     // Branch names with `..` would otherwise escape the intended parent dir.
     if payload.name.split('/').any(|seg| seg == ".." || seg == ".") {
-        eprintln!("[iso-code] branch name contains path traversal: {}", payload.name);
+        eprintln!(
+            "[iso-code] branch name contains path traversal: {}",
+            payload.name
+        );
         process::exit(1);
     }
 
@@ -123,9 +128,7 @@ fn run_hook(args: &[String]) {
     // Without this, `feature/auth` would silently create a nested `feature/`
     // directory next to the repo.
     let path_slug = payload.name.replace('/', "-");
-    let wt_path = repo_root.parent()
-        .unwrap_or(&repo_root)
-        .join(&path_slug);
+    let wt_path = repo_root.parent().unwrap_or(&repo_root).join(&path_slug);
 
     let mut opts = CreateOptions::default();
     opts.setup = setup;
@@ -157,9 +160,10 @@ fn run_hook(args: &[String]) {
 
 /// wt list
 fn run_list(args: &[String]) {
-    let repo = args.first().map(PathBuf::from).unwrap_or_else(|| {
-        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-    });
+    let repo = args
+        .first()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
 
     let mgr = match Manager::new(&repo, Config::default()) {
         Ok(m) => m,

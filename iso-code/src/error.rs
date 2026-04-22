@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use crate::types::WorktreeState;
+use std::path::PathBuf;
 
 /// Errors returned by iso-code operations.
 #[derive(Debug, thiserror::Error)]

@@ -41,7 +41,12 @@ struct RpcError {
 
 impl Response {
     fn ok(id: Value, result: Value) -> Self {
-        Self { jsonrpc: "2.0", id, result: Some(result), error: None }
+        Self {
+            jsonrpc: "2.0",
+            id,
+            result: Some(result),
+            error: None,
+        }
     }
 
     fn err(id: Value, code: i32, message: impl Into<String>) -> Self {
@@ -49,7 +54,10 @@ impl Response {
             jsonrpc: "2.0",
             id,
             result: None,
-            error: Some(RpcError { code, message: message.into() }),
+            error: Some(RpcError {
+                code,
+                message: message.into(),
+            }),
         }
     }
 }
@@ -472,18 +480,33 @@ mod tests {
             match name {
                 "worktree_list" | "worktree_status" | "conflict_check" => {
                     assert_eq!(annotations["readOnlyHint"], true, "{name} readOnlyHint");
-                    assert_eq!(annotations["destructiveHint"], false, "{name} destructiveHint");
+                    assert_eq!(
+                        annotations["destructiveHint"], false,
+                        "{name} destructiveHint"
+                    );
                     assert_eq!(annotations["idempotentHint"], true, "{name} idempotentHint");
                 }
                 "worktree_create" => {
                     assert_eq!(annotations["readOnlyHint"], false, "{name} readOnlyHint");
-                    assert_eq!(annotations["destructiveHint"], false, "{name} destructiveHint");
-                    assert_eq!(annotations["idempotentHint"], false, "{name} idempotentHint");
+                    assert_eq!(
+                        annotations["destructiveHint"], false,
+                        "{name} destructiveHint"
+                    );
+                    assert_eq!(
+                        annotations["idempotentHint"], false,
+                        "{name} idempotentHint"
+                    );
                 }
                 "worktree_delete" | "worktree_gc" => {
                     assert_eq!(annotations["readOnlyHint"], false, "{name} readOnlyHint");
-                    assert_eq!(annotations["destructiveHint"], true, "{name} destructiveHint");
-                    assert_eq!(annotations["idempotentHint"], false, "{name} idempotentHint");
+                    assert_eq!(
+                        annotations["destructiveHint"], true,
+                        "{name} destructiveHint"
+                    );
+                    assert_eq!(
+                        annotations["idempotentHint"], false,
+                        "{name} idempotentHint"
+                    );
                 }
                 _ => panic!("unexpected tool: {name}"),
             }

@@ -11,8 +11,7 @@ use std::path::Path;
 pub fn dir_size_skipping_git<'a, I: IntoIterator<Item = &'a Path>>(roots: I) -> u64 {
     let mut total: u64 = 0;
     #[cfg(unix)]
-    let mut seen_inodes: std::collections::HashSet<(u64, u64)> =
-        std::collections::HashSet::new();
+    let mut seen_inodes: std::collections::HashSet<(u64, u64)> = std::collections::HashSet::new();
 
     for root in roots {
         if !root.exists() {
@@ -39,8 +38,8 @@ pub fn dir_size_skipping_git<'a, I: IntoIterator<Item = &'a Path>>(roots: I) -> 
                             continue;
                         }
                     }
-                    total += filesize::file_real_size_fast(entry.path(), &meta)
-                        .unwrap_or(meta.len());
+                    total +=
+                        filesize::file_real_size_fast(entry.path(), &meta).unwrap_or(meta.len());
                 }
             }
         }

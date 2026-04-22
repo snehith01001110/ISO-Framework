@@ -108,10 +108,38 @@ fn gc_report_instantiates() {
 
 #[test]
 fn git_version_constants() {
-    assert_eq!(GitVersion::MINIMUM, GitVersion { major: 2, minor: 20, patch: 0 });
-    assert_eq!(GitVersion::HAS_LIST_NUL, GitVersion { major: 2, minor: 36, patch: 0 });
-    assert_eq!(GitVersion::HAS_REPAIR, GitVersion { major: 2, minor: 30, patch: 0 });
-    assert_eq!(GitVersion::HAS_MERGE_TREE_WRITE, GitVersion { major: 2, minor: 38, patch: 0 });
+    assert_eq!(
+        GitVersion::MINIMUM,
+        GitVersion {
+            major: 2,
+            minor: 20,
+            patch: 0
+        }
+    );
+    assert_eq!(
+        GitVersion::HAS_LIST_NUL,
+        GitVersion {
+            major: 2,
+            minor: 36,
+            patch: 0
+        }
+    );
+    assert_eq!(
+        GitVersion::HAS_REPAIR,
+        GitVersion {
+            major: 2,
+            minor: 30,
+            patch: 0
+        }
+    );
+    assert_eq!(
+        GitVersion::HAS_MERGE_TREE_WRITE,
+        GitVersion {
+            major: 2,
+            minor: 38,
+            patch: 0
+        }
+    );
 }
 
 #[test]
@@ -123,14 +151,7 @@ fn git_version_ordering() {
 
 #[test]
 fn git_capabilities_instantiates() {
-    let _c = GitCapabilities::new(
-        GitVersion::MINIMUM,
-        false,
-        false,
-        false,
-        false,
-        false,
-    );
+    let _c = GitCapabilities::new(GitVersion::MINIMUM, false, false, false, false, false);
 }
 
 #[test]

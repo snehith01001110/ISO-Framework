@@ -23,7 +23,11 @@ fn qa_g_001_branch_already_checked_out() {
     let mgr = Manager::new(repo.path(), Config::default()).unwrap();
 
     let (h1, _) = mgr
-        .create("feature-x", repo.path().join("wt-1"), CreateOptions::default())
+        .create(
+            "feature-x",
+            repo.path().join("wt-1"),
+            CreateOptions::default(),
+        )
         .unwrap();
     let result = mgr.create(
         "feature-x",
@@ -153,7 +157,10 @@ fn qa_g_008_bare_repo_permitted() {
     // Bare repos have no HEAD until a branch exists — create a minimal
     // source commit via a temp worktree so `resolve_ref("HEAD")` works.
     let seed = repo_dir.path().join("seed");
-    run_git(&bare, &["worktree", "add", seed.to_str().unwrap(), "-b", "main"]);
+    run_git(
+        &bare,
+        &["worktree", "add", seed.to_str().unwrap(), "-b", "main"],
+    );
     run_git(&seed, &["config", "user.email", "test@example.com"]);
     run_git(&seed, &["config", "user.name", "Test"]);
     run_git(&seed, &["commit", "--allow-empty", "-m", "seed"]);

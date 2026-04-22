@@ -50,7 +50,11 @@ impl McpSession {
         let mut child = cmd.spawn().expect("spawn iso-code-mcp");
         let stdin = child.stdin.take().unwrap();
         let stdout = BufReader::new(child.stdout.take().unwrap());
-        Self { child, stdin, stdout }
+        Self {
+            child,
+            stdin,
+            stdout,
+        }
     }
 
     fn request(&mut self, method: &str, params: Value, id: i64) -> Value {
@@ -64,19 +68,14 @@ impl McpSession {
         self.stdin.flush().expect("flush mcp stdin");
 
         let mut line = String::new();
-        self.stdout
-            .read_line(&mut line)
-            .expect("read mcp response");
+        self.stdout.read_line(&mut line).expect("read mcp response");
         assert!(!line.trim().is_empty(), "empty mcp response");
-        serde_json::from_str(&line).unwrap_or_else(|e| panic!("bad JSON-RPC response {line:?}: {e}"))
+        serde_json::from_str(&line)
+            .unwrap_or_else(|e| panic!("bad JSON-RPC response {line:?}: {e}"))
     }
 
     fn tools_call(&mut self, tool: &str, args: Value, id: i64) -> Value {
-        self.request(
-            "tools/call",
-            json!({ "name": tool, "arguments": args }),
-            id,
-        )
+        self.request("tools/call", json!({ "name": tool, "arguments": args }), id)
     }
 
     fn shutdown(mut self) {
@@ -221,7 +220,9 @@ fn qa_m_004_worktree_create() {
     let payload = content_payload(&resp);
     assert_eq!(payload["branch"], "mcp-create-branch");
     assert_eq!(payload["state"], "Active");
-    assert!(payload["session_uuid"].as_str().is_some_and(|s| !s.is_empty()));
+    assert!(payload["session_uuid"]
+        .as_str()
+        .is_some_and(|s| !s.is_empty()));
     assert!(wt_path.exists(), "worktree dir must be created on disk");
 
     s.shutdown();

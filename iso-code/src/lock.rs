@@ -48,10 +48,7 @@ impl StateLock {
     /// We never unlink the lock file during acquisition — that would create
     /// a two-inode race where two processes each hold flock on a different
     /// inode.
-    pub fn acquire(
-        lock_path: &Path,
-        timeout_ms: u64,
-    ) -> Result<Self, WorktreeError> {
+    pub fn acquire(lock_path: &Path, timeout_ms: u64) -> Result<Self, WorktreeError> {
         // Ensure parent directory exists
         if let Some(parent) = lock_path.parent() {
             fs::create_dir_all(parent)?;
@@ -244,8 +241,7 @@ fn is_network_filesystem(path: &Path) -> bool {
         unsafe {
             let mut stat: libc::statfs = std::mem::zeroed();
             if libc::statfs(path_cstr.as_ptr(), &mut stat) == 0 {
-                let fstype = std::ffi::CStr::from_ptr(stat.f_fstypename.as_ptr())
-                    .to_string_lossy();
+                let fstype = std::ffi::CStr::from_ptr(stat.f_fstypename.as_ptr()).to_string_lossy();
                 let network_types = ["nfs", "smbfs", "afpfs", "cifs", "webdav"];
                 return network_types.iter().any(|t| fstype.eq_ignore_ascii_case(t));
             }

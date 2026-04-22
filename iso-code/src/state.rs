@@ -112,12 +112,24 @@ pub struct ConfigSnapshot {
     pub extra: HashMap<String, Value>,
 }
 
-fn default_max_worktrees() -> usize { 20 }
-fn default_disk_threshold() -> u8 { 90 }
-fn default_gc_max_age() -> u32 { 7 }
-fn default_port_start() -> u16 { 3100 }
-fn default_port_end() -> u16 { 5100 }
-fn default_stale_ttl() -> u32 { 30 }
+fn default_max_worktrees() -> usize {
+    20
+}
+fn default_disk_threshold() -> u8 {
+    90
+}
+fn default_gc_max_age() -> u32 {
+    7
+}
+fn default_port_start() -> u16 {
+    3100
+}
+fn default_port_end() -> u16 {
+    5100
+}
+fn default_stale_ttl() -> u32 {
+    30
+}
 
 /// A single GC history record.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -159,8 +171,7 @@ impl StateV2 {
 /// Compute the repo_id: sha256 hex of the absolute canonicalized repo path.
 pub fn compute_repo_id(repo_root: &Path) -> String {
     use sha2::{Digest, Sha256};
-    let canonical = dunce::canonicalize(repo_root)
-        .unwrap_or_else(|_| repo_root.to_path_buf());
+    let canonical = dunce::canonicalize(repo_root).unwrap_or_else(|_| repo_root.to_path_buf());
     let mut hasher = Sha256::new();
     hasher.update(canonical.to_string_lossy().as_bytes());
     format!("{:x}", hasher.finalize())
@@ -190,7 +201,10 @@ pub fn state_lock_path(repo_root: &Path, home_override: Option<&Path>) -> PathBu
 }
 
 /// Ensure the state directory exists. Called from Manager::new().
-pub fn ensure_state_dir(repo_root: &Path, home_override: Option<&Path>) -> Result<(), WorktreeError> {
+pub fn ensure_state_dir(
+    repo_root: &Path,
+    home_override: Option<&Path>,
+) -> Result<(), WorktreeError> {
     let dir = state_dir(repo_root, home_override);
     fs::create_dir_all(&dir)?;
     Ok(())
@@ -206,7 +220,10 @@ pub fn ensure_state_dir(repo_root: &Path, home_override: Option<&Path>) -> Resul
 /// returned. The next `list()` will repopulate active worktrees from
 /// `git worktree list`. A migration failure (unknown schema version) is
 /// surfaced as `StateCorrupted` — we don't clobber data we can't interpret.
-pub fn read_state(repo_root: &Path, home_override: Option<&Path>) -> Result<StateV2, WorktreeError> {
+pub fn read_state(
+    repo_root: &Path,
+    home_override: Option<&Path>,
+) -> Result<StateV2, WorktreeError> {
     let path = state_json_path(repo_root, home_override);
 
     if !path.exists() {
@@ -251,10 +268,8 @@ pub fn write_state(
     // Update last_modified timestamp
     state.last_modified = Utc::now();
 
-    let json = serde_json::to_string_pretty(state).map_err(|e| {
-        WorktreeError::StateCorrupted {
-            reason: format!("serialization failed: {e}"),
-        }
+    let json = serde_json::to_string_pretty(state).map_err(|e| WorktreeError::StateCorrupted {
+        reason: format!("serialization failed: {e}"),
     })?;
 
     // Write to tmp file
@@ -273,7 +288,8 @@ pub fn write_state(
 /// Schema migration dispatcher. Upgrades older state files to the current
 /// schema version in-place before they are returned to callers.
 pub fn migrate(raw: Value) -> Result<StateV2, WorktreeError> {
-    let version = raw.get("schema_version")
+    let version = raw
+        .get("schema_version")
         .and_then(|v| v.as_u64())
         .or_else(|| raw.get("version").and_then(|v| v.as_u64()))
         .unwrap_or(1);
@@ -293,7 +309,8 @@ pub fn migrate(raw: Value) -> Result<StateV2, WorktreeError> {
 ///
 /// v1 format: `{ "version": 1, "worktrees": { ... } }`.
 fn migrate_v1_to_v2(raw: Value) -> Result<StateV2, WorktreeError> {
-    let repo_id = raw.get("repo_id")
+    let repo_id = raw
+        .get("repo_id")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
@@ -304,8 +321,8 @@ fn migrate_v1_to_v2(raw: Value) -> Result<StateV2, WorktreeError> {
     let mut active_worktrees = HashMap::new();
     if let Some(wts) = raw.get("worktrees").and_then(|v| v.as_object()) {
         for (key, val) in wts {
-            let entry: ActiveWorktreeEntry = serde_json::from_value(val.clone())
-                .map_err(|e| WorktreeError::StateCorrupted {
+            let entry: ActiveWorktreeEntry =
+                serde_json::from_value(val.clone()).map_err(|e| WorktreeError::StateCorrupted {
                     reason: format!("v1 worktree entry '{key}' invalid: {e}"),
                 })?;
             active_worktrees.insert(key.clone(), entry);
@@ -503,7 +520,10 @@ mod tests {
         }"#;
 
         let state: StateV2 = serde_json::from_str(json).unwrap();
-        assert_eq!(state.extra.get("future_field").unwrap(), "hello from the future");
+        assert_eq!(
+            state.extra.get("future_field").unwrap(),
+            "hello from the future"
+        );
         assert_eq!(state.extra.get("another_unknown").unwrap(), 42);
 
         // Re-serialize and verify unknown fields survive

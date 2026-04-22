@@ -46,10 +46,7 @@ pub fn allocate_port(
 ) -> Result<u16, WorktreeError> {
     let range_size = (port_range_end - port_range_start) as u32;
     if range_size == 0 {
-        return Err(WorktreeError::RateLimitExceeded {
-            current: 0,
-            max: 0,
-        });
+        return Err(WorktreeError::RateLimitExceeded { current: 0, max: 0 });
     }
 
     let now = chrono::Utc::now();
@@ -79,12 +76,7 @@ pub fn allocate_port(
 }
 
 /// Build a PortLease with 8-hour TTL.
-pub fn make_lease(
-    port: u16,
-    branch: &str,
-    session_uuid: &str,
-    pid: u32,
-) -> PortLease {
+pub fn make_lease(port: u16, branch: &str, session_uuid: &str, pid: u32) -> PortLease {
     let now = chrono::Utc::now();
     PortLease {
         port,

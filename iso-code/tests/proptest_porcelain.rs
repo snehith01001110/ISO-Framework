@@ -23,7 +23,7 @@ struct BlockSpec {
     branch: Option<String>,
     bare: bool,
     detached: bool,
-    locked: Option<Option<String>>,  // Some(None) = locked no reason; Some(Some(r)) = locked with reason.
+    locked: Option<Option<String>>, // Some(None) = locked no reason; Some(Some(r)) = locked with reason.
     prunable: Option<Option<String>>,
 }
 
@@ -38,10 +38,14 @@ fn safe_path(nul_delimited: bool) -> impl Strategy<Value = String> {
     // will never emit those in that mode.
     if nul_delimited {
         // -z mode: no NUL bytes, newlines ARE permitted in path.
-        "/[\\sA-Za-z0-9_\\-/\\.áéíñü ]{1,24}".prop_map(|s| s.to_string()).boxed()
+        "/[\\sA-Za-z0-9_\\-/\\.áéíñü ]{1,24}"
+            .prop_map(|s| s.to_string())
+            .boxed()
     } else {
         // Newline mode: paths must not contain newlines or NUL.
-        "/[A-Za-z0-9_\\-/\\. áéíñü]{1,24}".prop_map(|s| s.to_string()).boxed()
+        "/[A-Za-z0-9_\\-/\\. áéíñü]{1,24}"
+            .prop_map(|s| s.to_string())
+            .boxed()
     }
 }
 
@@ -55,20 +59,26 @@ fn block_spec(nul: bool) -> impl Strategy<Value = BlockSpec> {
         safe_path(nul),
         hex40(),
         prop::option::of(branch_name()),
-        any::<bool>(),  // bare
-        any::<bool>(),  // detached
-        prop::option::of(prop::option::of("[a-zA-Z0-9 ]{0,20}".prop_map(|s| s.to_string()))),
-        prop::option::of(prop::option::of("[a-zA-Z0-9 ]{0,20}".prop_map(|s| s.to_string()))),
+        any::<bool>(), // bare
+        any::<bool>(), // detached
+        prop::option::of(prop::option::of(
+            "[a-zA-Z0-9 ]{0,20}".prop_map(|s| s.to_string()),
+        )),
+        prop::option::of(prop::option::of(
+            "[a-zA-Z0-9 ]{0,20}".prop_map(|s| s.to_string()),
+        )),
     )
-        .prop_map(|(path, head, branch, bare, detached, locked, prunable)| BlockSpec {
-            path,
-            head,
-            branch,
-            bare,
-            detached,
-            locked,
-            prunable,
-        })
+        .prop_map(
+            |(path, head, branch, bare, detached, locked, prunable)| BlockSpec {
+                path,
+                head,
+                branch,
+                bare,
+                detached,
+                locked,
+                prunable,
+            },
+        )
 }
 
 /// Encode a block spec into porcelain bytes using the chosen separator.

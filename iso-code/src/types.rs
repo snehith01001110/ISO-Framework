@@ -142,7 +142,9 @@ pub enum ReflinkMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CopyOutcome {
     Reflinked,
-    StandardCopy { bytes_written: u64 },
+    StandardCopy {
+        bytes_written: u64,
+    },
     /// No file copying occurred (worktree created via git checkout only).
     None,
 }
@@ -313,7 +315,13 @@ impl GcReport {
         freed_bytes: u64,
         dry_run: bool,
     ) -> Self {
-        Self { orphans, removed, evicted, freed_bytes, dry_run }
+        Self {
+            orphans,
+            removed,
+            evicted,
+            freed_bytes,
+            dry_run,
+        }
     }
 }
 
@@ -347,7 +355,14 @@ impl GitCapabilities {
         has_relative_paths: bool,
         has_merge_tree_write: bool,
     ) -> Self {
-        Self { version, has_list_nul, has_repair, has_orphan, has_relative_paths, has_merge_tree_write }
+        Self {
+            version,
+            has_list_nul,
+            has_repair,
+            has_orphan,
+            has_relative_paths,
+            has_merge_tree_write,
+        }
     }
 }
 
@@ -360,10 +375,26 @@ pub struct GitVersion {
 }
 
 impl GitVersion {
-    pub const MINIMUM: GitVersion = GitVersion { major: 2, minor: 20, patch: 0 };
-    pub const HAS_LIST_NUL: GitVersion = GitVersion { major: 2, minor: 36, patch: 0 };
-    pub const HAS_REPAIR: GitVersion = GitVersion { major: 2, minor: 30, patch: 0 };
-    pub const HAS_MERGE_TREE_WRITE: GitVersion = GitVersion { major: 2, minor: 38, patch: 0 };
+    pub const MINIMUM: GitVersion = GitVersion {
+        major: 2,
+        minor: 20,
+        patch: 0,
+    };
+    pub const HAS_LIST_NUL: GitVersion = GitVersion {
+        major: 2,
+        minor: 36,
+        patch: 0,
+    };
+    pub const HAS_REPAIR: GitVersion = GitVersion {
+        major: 2,
+        minor: 30,
+        patch: 0,
+    };
+    pub const HAS_MERGE_TREE_WRITE: GitVersion = GitVersion {
+        major: 2,
+        minor: 38,
+        patch: 0,
+    };
 }
 
 // ── 4.9 PortLease ───────────────────────────────────────────────────────

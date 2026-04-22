@@ -213,7 +213,9 @@ fn qa_c_004_circuit_breaker_trips_after_consecutive_failures() {
     for i in 0..6 {
         match mgr.list() {
             Ok(_) => {}
-            Err(WorktreeError::CircuitBreakerOpen { consecutive_failures }) => {
+            Err(WorktreeError::CircuitBreakerOpen {
+                consecutive_failures,
+            }) => {
                 assert!(
                     consecutive_failures >= 3,
                     "breaker should trip at or after threshold, got {consecutive_failures} on attempt {i}"
@@ -354,7 +356,8 @@ fn qa_c_008_pid_reuse_false_positive_detected() {
     let start = Instant::now();
     let mgr = Manager::new(repo.path(), Config::default())
         .expect("Manager::new() should tolerate stale lock payload");
-    mgr.list().expect("list should succeed despite stale payload");
+    mgr.list()
+        .expect("list should succeed despite stale payload");
     assert!(
         start.elapsed() < Duration::from_secs(5),
         "stale payload should not cause lock-acquisition timeout"
