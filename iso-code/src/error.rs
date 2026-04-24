@@ -14,7 +14,7 @@ pub enum WorktreeError {
     #[error("branch '{branch}' is already checked out at '{worktree}'")]
     BranchAlreadyCheckedOut { branch: String, worktree: PathBuf },
 
-    #[error("worktree path already exists: {0}")]
+    #[error("worktree path already exists: {0} — pick a path that doesn't exist yet; iso-code will create it (e.g. a sibling like ../<name>-<branch>)")]
     WorktreePathExists(PathBuf),
 
     #[error("uncommitted changes in worktree — use force_dirty to override: {files:?}")]
@@ -138,5 +138,16 @@ mod tests {
             reason: Some("in-flight build".into()),
         };
         assert_eq!(e.to_string(), "worktree is locked: in-flight build");
+    }
+
+    #[test]
+    fn worktree_path_exists_includes_path_and_hint() {
+        let e = WorktreeError::WorktreePathExists(PathBuf::from("/Users/foo/mitd"));
+        let msg = e.to_string();
+        assert!(msg.contains("/Users/foo/mitd"), "path missing from message");
+        assert!(
+            msg.contains("doesn't exist yet"),
+            "recovery hint missing from message"
+        );
     }
 }
