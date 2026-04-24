@@ -105,6 +105,9 @@ pub enum WorktreeError {
         hint: String,
     },
 
+    #[error("shell command failed (exit {exit_code}): {stderr}")]
+    ShellCommandFailed { exit_code: i32, stderr: String },
+
     #[error("git command failed\n  command: {command}\n  stderr: {stderr}\n  exit: {exit_code}")]
     GitCommandFailed {
         command: String,

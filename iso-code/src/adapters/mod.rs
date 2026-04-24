@@ -5,5 +5,7 @@
 //! [`Manager::with_adapter`](crate::Manager::with_adapter).
 
 pub mod default;
+pub mod shell_command;
 
 pub use default::DefaultAdapter;
+pub use shell_command::ShellCommandAdapter;
