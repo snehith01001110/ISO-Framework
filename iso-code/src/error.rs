@@ -53,7 +53,7 @@ pub enum WorktreeError {
     #[error("cannot delete own working directory")]
     CannotDeleteCwd,
 
-    #[error("worktree is locked: {reason:?}")]
+    #[error("{}", match reason { Some(r) => format!("worktree is locked: {r}"), None => "worktree is locked".to_string() })]
     WorktreeLocked { reason: Option<String> },
 
     #[error("cannot create worktree inside existing worktree at '{parent}'")]
@@ -125,6 +125,20 @@ pub enum WorktreeError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn worktree_locked_no_reason() {
+        let e = WorktreeError::WorktreeLocked { reason: None };
+        assert_eq!(e.to_string(), "worktree is locked");
+    }
+
+    #[test]
+    fn worktree_locked_with_reason() {
+        let e = WorktreeError::WorktreeLocked {
+            reason: Some("in-flight build".into()),
+        };
+        assert_eq!(e.to_string(), "worktree is locked: in-flight build");
+    }
 
     #[test]
     fn worktree_path_exists_includes_path_and_hint() {
