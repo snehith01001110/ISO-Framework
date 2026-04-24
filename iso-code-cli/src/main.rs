@@ -4,6 +4,8 @@ use std::process;
 
 use iso_code::{AttachOptions, Config, CreateOptions, GcOptions, Manager};
 
+mod config;
+
 #[derive(serde::Deserialize)]
 struct ClaudeCodeHookPayload {
     #[serde(default)]
@@ -186,26 +188,73 @@ fn run_list(args: &[String]) {
     }
 }
 
-/// `wt create <branch> <path>`
+/// `wt create <branch> <path> [--setup]`
 fn run_create(args: &[String]) {
-    if args.len() != 2 {
-        eprintln!("[iso-code] Usage: wt create <branch> <path>");
+    let mut setup = false;
+
+    let positional: Vec<&String> = args
+        .iter()
+        .filter(|a| {
+            if a.as_str() == "--setup" {
+                setup = true;
+                false
+            } else {
+                true
+            }
+        })
+        .collect();
+
+    if positional.len() != 2 {
+        eprintln!("[iso-code] Usage: wt create <branch> <path> [--setup]");
         process::exit(1);
     }
 
-    let branch = &args[0];
-    let path = PathBuf::from(&args[1]);
+    let branch = positional[0];
+    let path = PathBuf::from(positional[1]);
     let repo = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
 
-    let mgr = match Manager::new(&repo, Config::default()) {
-        Ok(m) => m,
-        Err(e) => {
-            eprintln!("[iso-code] Error: {e}");
-            process::exit(1);
+    let mut opts = CreateOptions::default();
+
+    let mgr = if setup {
+        let cfg = config::load_config(&repo);
+        match cfg.adapter {
+            Some(ref adapter_cfg) => {
+                opts.setup = true;
+                let adapter = config::build_adapter(adapter_cfg);
+                match Manager::with_adapter(&repo, Config::default(), Some(adapter)) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        eprintln!("[iso-code] Error: {e}");
+                        process::exit(1);
+                    }
+                }
+            }
+            None => {
+                eprintln!(
+                    "[iso-code] Warning: --setup passed but no adapter configured \
+                     in .iso-code.toml or ~/.config/iso-code/config.toml — \
+                     proceeding without setup"
+                );
+                match Manager::new(&repo, Config::default()) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        eprintln!("[iso-code] Error: {e}");
+                        process::exit(1);
+                    }
+                }
+            }
+        }
+    } else {
+        match Manager::new(&repo, Config::default()) {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("[iso-code] Error: {e}");
+                process::exit(1);
+            }
         }
     };
 
-    match mgr.create(branch, &path, CreateOptions::default()) {
+    match mgr.create(branch, &path, opts) {
         Ok((handle, _)) => {
             println!("{}", handle.path.display());
         }
