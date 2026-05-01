@@ -286,7 +286,10 @@ fn run_shell(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
     use tempfile::TempDir;
+
+    static ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn tmp() -> TempDir {
         TempDir::new().unwrap()
@@ -431,6 +434,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn env_vars_injected_into_post_create() {
+        let _lock = ENV_TEST_LOCK.lock().unwrap();
         let dir = tmp();
         let out_file = dir.path().join("branch.txt");
         let out_str = out_file.to_str().unwrap();
@@ -457,6 +461,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn env_vars_replayed_into_teardown_commands() {
+        let _lock = ENV_TEST_LOCK.lock().unwrap();
         let worktree = tmp();
         let signal = tmp();
         let out_file = signal.path().join("branch.txt");

@@ -39,7 +39,7 @@ pub struct CliConfig {
 
 /// Load CLI config from the first file found in this order:
 /// 1. `<repo_root>/.iso-code.toml`  (project-local, highest priority)
-/// 2. `$HOME/.config/iso-code/config.toml`  (user-level)
+/// 2. `$XDG_CONFIG_HOME/iso-code/config.toml` or `$HOME/.config/iso-code/config.toml` (user-level)
 pub fn load_config(repo_root: &Path) -> CliConfig {
     let local = repo_root.join(".iso-code.toml");
     if local.exists() {
@@ -48,8 +48,7 @@ pub fn load_config(repo_root: &Path) -> CliConfig {
         }
     }
 
-    if let Some(home) = home_dir() {
-        let user = home.join(".config").join("iso-code").join("config.toml");
+    for user in user_config_paths() {
         if user.exists() {
             if let Some(cfg) = read_toml(&user) {
                 return cfg;
@@ -96,8 +95,38 @@ fn read_toml(path: &Path) -> Option<CliConfig> {
     toml::from_str(&content).ok()
 }
 
-fn home_dir() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
+fn user_config_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    #[cfg(not(windows))]
+    {
+        if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
+            paths.push(PathBuf::from(xdg).join("iso-code").join("config.toml"));
+        }
+        if let Some(home) = std::env::var_os("HOME") {
+            paths.push(
+                PathBuf::from(home)
+                    .join(".config")
+                    .join("iso-code")
+                    .join("config.toml"),
+            );
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        if let Some(appdata) = std::env::var_os("APPDATA") {
+            paths.push(PathBuf::from(appdata).join("iso-code").join("config.toml"));
+        }
+        if let Some(profile) = std::env::var_os("USERPROFILE") {
+            paths.push(
+                PathBuf::from(profile)
+                    .join(".config")
+                    .join("iso-code")
+                    .join("config.toml"),
+            );
+        }
+    }
+
+    paths
 }

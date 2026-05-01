@@ -1,5 +1,5 @@
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 
 use iso_code::{AttachOptions, Config, CreateOptions, GcOptions, Manager};
@@ -115,8 +115,7 @@ fn run_hook(args: &[String]) {
         process::exit(1);
     }
 
-    // Build Manager
-    let mgr = match Manager::new(&repo_root, Config::default()) {
+    let (mgr, setup_enabled) = match manager_for_setup(&repo_root, setup) {
         Ok(m) => m,
         Err(e) => {
             eprintln!("[iso-code] Failed to initialize Manager: {e}");
@@ -133,7 +132,7 @@ fn run_hook(args: &[String]) {
     let wt_path = repo_root.parent().unwrap_or(&repo_root).join(&path_slug);
 
     let mut opts = CreateOptions::default();
-    opts.setup = setup;
+    opts.setup = setup_enabled;
 
     let (handle, _) = match mgr.create(&payload.name, &wt_path, opts) {
         Ok(r) => r,
@@ -191,68 +190,39 @@ fn run_list(args: &[String]) {
 /// `wt create <branch> <path> [--setup]`
 fn run_create(args: &[String]) {
     let mut setup = false;
+    let mut positional = Vec::new();
 
-    let positional: Vec<&String> = args
-        .iter()
-        .filter(|a| {
-            if a.as_str() == "--setup" {
-                setup = true;
-                false
-            } else {
-                true
+    for arg in args {
+        match arg.as_str() {
+            "--setup" => setup = true,
+            flag if flag.starts_with("--") => {
+                eprintln!("[iso-code] Unknown flag: {flag}");
+                eprintln!("[iso-code] Usage: wt create <branch> <path> [--setup]");
+                process::exit(1);
             }
-        })
-        .collect();
+            _ => positional.push(arg.clone()),
+        }
+    }
 
     if positional.len() != 2 {
         eprintln!("[iso-code] Usage: wt create <branch> <path> [--setup]");
         process::exit(1);
     }
 
-    let branch = positional[0];
-    let path = PathBuf::from(positional[1]);
+    let branch = &positional[0];
+    let path = PathBuf::from(&positional[1]);
     let repo = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
 
-    let mut opts = CreateOptions::default();
-
-    let mgr = if setup {
-        let cfg = config::load_config(&repo);
-        match cfg.adapter {
-            Some(ref adapter_cfg) => {
-                opts.setup = true;
-                let adapter = config::build_adapter(adapter_cfg);
-                match Manager::with_adapter(&repo, Config::default(), Some(adapter)) {
-                    Ok(m) => m,
-                    Err(e) => {
-                        eprintln!("[iso-code] Error: {e}");
-                        process::exit(1);
-                    }
-                }
-            }
-            None => {
-                eprintln!(
-                    "[iso-code] Warning: --setup passed but no adapter configured \
-                     in .iso-code.toml or ~/.config/iso-code/config.toml — \
-                     proceeding without setup"
-                );
-                match Manager::new(&repo, Config::default()) {
-                    Ok(m) => m,
-                    Err(e) => {
-                        eprintln!("[iso-code] Error: {e}");
-                        process::exit(1);
-                    }
-                }
-            }
-        }
-    } else {
-        match Manager::new(&repo, Config::default()) {
-            Ok(m) => m,
-            Err(e) => {
-                eprintln!("[iso-code] Error: {e}");
-                process::exit(1);
-            }
+    let (mgr, setup_enabled) = match manager_for_setup(&repo, setup) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("[iso-code] Error: {e}");
+            process::exit(1);
         }
     };
+
+    let mut opts = CreateOptions::default();
+    opts.setup = setup_enabled;
 
     match mgr.create(branch, &path, opts) {
         Ok((handle, _)) => {
@@ -261,6 +231,32 @@ fn run_create(args: &[String]) {
         Err(e) => {
             eprintln!("[iso-code] Error: {e}");
             process::exit(1);
+        }
+    }
+}
+
+fn manager_for_setup(repo: &Path, setup_requested: bool) -> Result<(Manager, bool), String> {
+    if !setup_requested {
+        return Manager::new(repo, Config::default())
+            .map(|m| (m, false))
+            .map_err(|e| e.to_string());
+    }
+
+    let cfg = config::load_config(repo);
+    match cfg.adapter {
+        Some(ref adapter_cfg) => {
+            let adapter = config::build_adapter(adapter_cfg);
+            Manager::with_adapter(repo, Config::default(), Some(adapter))
+                .map(|m| (m, true))
+                .map_err(|e| e.to_string())
+        }
+        None => {
+            eprintln!(
+                "[iso-code] Warning: --setup requested but no adapter configured; creating worktree without setup"
+            );
+            Manager::new(repo, Config::default())
+                .map(|m| (m, false))
+                .map_err(|e| e.to_string())
         }
     }
 }
