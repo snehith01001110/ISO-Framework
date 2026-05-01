@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use iso_code::{AttachOptions, Config, CreateOptions, GcOptions, Manager};
+use iso_code::{AttachOptions, Config, CreateOptions, GcOptions, Manager, WorktreeHandle};
 
 mod config;
 
@@ -21,13 +21,14 @@ fn main() {
 
     if args.len() < 2 {
         eprintln!("[iso-code] Usage: wt <subcommand> [args]");
-        eprintln!("[iso-code] Subcommands: hook, list, create, delete, attach, gc");
+        eprintln!("[iso-code] Subcommands: hook, list, status, create, delete, attach, gc");
         process::exit(1);
     }
 
     match args[1].as_str() {
         "hook" => run_hook(&args[2..]),
         "list" => run_list(&args[2..]),
+        "status" => run_status(&args[2..]),
         "create" => run_create(&args[2..]),
         "delete" => run_delete(&args[2..]),
         "attach" => run_attach(&args[2..]),
@@ -161,10 +162,7 @@ fn run_hook(args: &[String]) {
 
 /// wt list
 fn run_list(args: &[String]) {
-    let repo = args
-        .first()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    let (repo, json) = parse_repo_and_json_args(args, "wt list [--json] [repo]");
 
     let mgr = match Manager::new(&repo, Config::default()) {
         Ok(m) => m,
@@ -176,8 +174,18 @@ fn run_list(args: &[String]) {
 
     match mgr.list() {
         Ok(worktrees) => {
-            for wt in worktrees {
-                println!("{} [{}] {:?}", wt.path.display(), wt.branch, wt.state);
+            if json {
+                print_worktrees_json(&worktrees);
+            } else {
+                for wt in worktrees {
+                    println!(
+                        "{} [{}] {:?} port={}",
+                        wt.path.display(),
+                        wt.branch,
+                        wt.state,
+                        display_port(wt.port)
+                    );
+                }
             }
         }
         Err(e) => {
@@ -187,17 +195,46 @@ fn run_list(args: &[String]) {
     }
 }
 
-/// `wt create <branch> <path> [--setup]`
+/// wt status [--json] [repo]
+fn run_status(args: &[String]) {
+    let (repo, json) = parse_repo_and_json_args(args, "wt status [--json] [repo]");
+
+    let mgr = match Manager::new(&repo, Config::default()) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("[iso-code] Error: {e}");
+            process::exit(1);
+        }
+    };
+
+    match mgr.list() {
+        Ok(worktrees) => {
+            if json {
+                print_worktrees_json(&worktrees);
+            } else {
+                print_status_table(&worktrees);
+            }
+        }
+        Err(e) => {
+            eprintln!("[iso-code] Error: {e}");
+            process::exit(1);
+        }
+    }
+}
+
+/// `wt create <branch> <path> [--setup] [--port]`
 fn run_create(args: &[String]) {
     let mut setup = false;
+    let mut allocate_port = false;
     let mut positional = Vec::new();
 
     for arg in args {
         match arg.as_str() {
             "--setup" => setup = true,
+            "--port" => allocate_port = true,
             flag if flag.starts_with("--") => {
                 eprintln!("[iso-code] Unknown flag: {flag}");
-                eprintln!("[iso-code] Usage: wt create <branch> <path> [--setup]");
+                eprintln!("[iso-code] Usage: wt create <branch> <path> [--setup] [--port]");
                 process::exit(1);
             }
             _ => positional.push(arg.clone()),
@@ -205,7 +242,7 @@ fn run_create(args: &[String]) {
     }
 
     if positional.len() != 2 {
-        eprintln!("[iso-code] Usage: wt create <branch> <path> [--setup]");
+        eprintln!("[iso-code] Usage: wt create <branch> <path> [--setup] [--port]");
         process::exit(1);
     }
 
@@ -223,9 +260,13 @@ fn run_create(args: &[String]) {
 
     let mut opts = CreateOptions::default();
     opts.setup = setup_enabled;
+    opts.allocate_port = allocate_port;
 
     match mgr.create(branch, &path, opts) {
         Ok((handle, _)) => {
+            if let Some(port) = handle.port {
+                eprintln!("[iso-code] Port allocated: {port}");
+            }
             println!("{}", handle.path.display());
         }
         Err(e) => {
@@ -233,6 +274,68 @@ fn run_create(args: &[String]) {
             process::exit(1);
         }
     }
+}
+
+fn parse_repo_and_json_args(args: &[String], usage: &str) -> (PathBuf, bool) {
+    let mut json = false;
+    let mut repo: Option<PathBuf> = None;
+
+    for arg in args {
+        match arg.as_str() {
+            "--json" => json = true,
+            flag if flag.starts_with("--") => {
+                eprintln!("[iso-code] Unknown flag: {flag}");
+                eprintln!("[iso-code] Usage: {usage}");
+                process::exit(1);
+            }
+            _ if repo.is_none() => repo = Some(PathBuf::from(arg)),
+            _ => {
+                eprintln!("[iso-code] Usage: {usage}");
+                process::exit(1);
+            }
+        }
+    }
+
+    (
+        repo.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))),
+        json,
+    )
+}
+
+fn display_port(port: Option<u16>) -> String {
+    port.map(|p| p.to_string())
+        .unwrap_or_else(|| "-".to_string())
+}
+
+fn print_status_table(worktrees: &[WorktreeHandle]) {
+    println!("{:<8} {:<8} {:<28} PATH", "STATE", "PORT", "BRANCH");
+    for wt in worktrees {
+        println!(
+            "{:<8} {:<8} {:<28} {}",
+            format!("{:?}", wt.state),
+            display_port(wt.port),
+            wt.branch,
+            wt.path.display()
+        );
+    }
+}
+
+fn print_worktrees_json(worktrees: &[WorktreeHandle]) {
+    let rows: Vec<_> = worktrees
+        .iter()
+        .map(|wt| {
+            serde_json::json!({
+                "path": wt.path,
+                "branch": wt.branch,
+                "state": format!("{:?}", wt.state),
+                "port": wt.port,
+                "adapter": wt.adapter,
+                "setup_complete": wt.setup_complete,
+                "session_uuid": wt.session_uuid,
+            })
+        })
+        .collect();
+    println!("{}", serde_json::to_string_pretty(&rows).unwrap());
 }
 
 fn manager_for_setup(repo: &Path, setup_requested: bool) -> Result<(Manager, bool), String> {

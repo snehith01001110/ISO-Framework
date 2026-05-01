@@ -41,9 +41,10 @@ fn qa_g_001_branch_already_checked_out() {
     mgr.delete(&h1, force).unwrap();
 }
 
-/// QA-G-003: at the worktree-count limit, the next create is rejected with
-/// `RateLimitExceeded`. The primary worktree counts toward the limit, so
-/// `max_worktrees = 3` permits exactly 2 additional worktrees.
+/// QA-G-003: at the managed worktree-count limit, the next create is
+/// rejected with `RateLimitExceeded`. The primary checkout does not count
+/// against the managed secondary worktree limit, so `max_worktrees = 3`
+/// permits exactly 3 additional worktrees.
 #[test]
 fn qa_g_003_worktree_count_rate_limit() {
     let repo = create_test_repo();
@@ -52,7 +53,7 @@ fn qa_g_003_worktree_count_rate_limit() {
     let mgr = Manager::new(repo.path(), cfg).unwrap();
 
     let mut handles = Vec::new();
-    for i in 0..2 {
+    for i in 0..3 {
         let (h, _) = mgr
             .create(
                 format!("lim-{i}"),
@@ -63,8 +64,8 @@ fn qa_g_003_worktree_count_rate_limit() {
         handles.push(h);
     }
     let result = mgr.create(
-        "lim-2",
-        repo.path().join("lim-wt-2"),
+        "lim-3",
+        repo.path().join("lim-wt-3"),
         CreateOptions::default(),
     );
     assert_matches!(

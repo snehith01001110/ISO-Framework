@@ -403,18 +403,22 @@ pub(crate) fn run_pre_create_guards(
     check_disk_space(args.target_path, args.min_free_disk_mb)?;
 
     // 3. Worktree count limit.
-    // Count every worktree that still occupies a slot on disk or in git's
-    // registry. Locked worktrees absolutely count (they hold resources and
-    // can't be evicted by gc). Orphaned/Broken/Deleted are about to be
-    // reaped or are already gone, so they don't block new creation.
+    // Count every secondary worktree that still occupies a slot on disk or in
+    // git's registry. The primary checkout is not a managed worktree slot.
+    // Locked worktrees absolutely count (they hold resources and can't be
+    // evicted by gc). Orphaned/Broken/Deleted are about to be reaped or are
+    // already gone, so they don't block new creation.
+    let canon_repo = dunce::canonicalize(args.repo).unwrap_or_else(|_| args.repo.to_path_buf());
     let active_count = args
         .existing_worktrees
         .iter()
         .filter(|wt| {
-            !matches!(
-                wt.state,
-                WorktreeState::Orphaned | WorktreeState::Broken | WorktreeState::Deleted
-            )
+            let canon_path = dunce::canonicalize(&wt.path).unwrap_or_else(|_| wt.path.clone());
+            canon_path != canon_repo
+                && !matches!(
+                    wt.state,
+                    WorktreeState::Orphaned | WorktreeState::Broken | WorktreeState::Deleted
+                )
         })
         .count();
     check_worktree_count(active_count, args.max_worktrees)?;

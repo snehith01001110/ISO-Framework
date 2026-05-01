@@ -420,7 +420,7 @@ impl Manager {
         // alongside the worktree rollback.
         let port = if options.allocate_port {
             let repo_id = state::compute_repo_id(&self.repo_root);
-            self.with_state(|s| {
+            let allocated_state = self.with_state(|s| {
                 let p = ports::allocate_port(
                     &repo_id,
                     &branch,
@@ -432,9 +432,24 @@ impl Manager {
                 let lease = ports::make_lease(p, &branch, &session_uuid, creator_pid);
                 s.port_leases.insert(branch.clone(), lease);
                 Ok(())
-            })
-            .ok()
-            .and_then(|s| s.port_leases.get(&branch).map(|l| l.port))
+            });
+
+            match allocated_state {
+                Ok(s) => s.port_leases.get(&branch).map(|l| l.port),
+                Err(e) => {
+                    let _ = git::worktree_remove_force(&self.repo_root, &target_path);
+                    if let Err(se) = self.with_state(|s| {
+                        s.active_worktrees.remove(&branch);
+                        s.port_leases.remove(&branch);
+                        Ok(())
+                    }) {
+                        eprintln!(
+                            "[iso-code] WARNING: failed to clean up state after port allocation failure: {se}"
+                        );
+                    }
+                    return Err(e);
+                }
+            }
         } else {
             None
         };

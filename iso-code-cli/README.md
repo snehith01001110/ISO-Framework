@@ -20,9 +20,15 @@ The binary is named `wt`.
 ```bash
 # List all worktrees tracked for this repo
 wt list
+wt list --json
+
+# Show status with port assignments
+wt status
+wt status --json
 
 # Create a worktree for a branch
 wt create feature/my-branch ../my-branch-worktree
+wt create feature/my-branch ../my-branch-worktree --setup --port
 
 # Delete a worktree (runs 5-step unmerged-commit check)
 wt delete ../my-branch-worktree
@@ -49,7 +55,8 @@ wt hook --stdin-format claude-code
 
 ## Status
 
-Milestone 1 (Foundation). `--setup` adapter flags will ship in milestone 2.
+Milestone 2 environment lifecycle work is in progress. `--setup` adapter
+configuration and `--port` lease allocation are available.
 See the [PRD](https://github.com/snehith01001110/ISO-Framework/blob/main/ISO_PRD-v1.5.md)
 for the roadmap.
 
