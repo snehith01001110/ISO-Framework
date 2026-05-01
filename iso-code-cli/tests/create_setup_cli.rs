@@ -176,7 +176,7 @@ fn create_setup_without_config_warns_and_still_creates() {
     assert!(wt_path.exists());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--setup requested but no adapter is configured"),
+        stderr.contains("--setup requested") && stderr.contains("no adapter configured"),
         "stderr: {stderr}"
     );
 

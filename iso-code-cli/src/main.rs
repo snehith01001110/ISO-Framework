@@ -2,10 +2,9 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use iso_code::{
-    AttachOptions, Config, CreateOptions, DefaultAdapter, EcosystemAdapter, GcOptions, Manager,
-    ShellCommandAdapter,
-};
+use iso_code::{AttachOptions, Config, CreateOptions, GcOptions, Manager};
+
+mod config;
 
 #[derive(serde::Deserialize)]
 struct ClaudeCodeHookPayload {
@@ -15,23 +14,6 @@ struct ClaudeCodeHookPayload {
     #[serde(default)]
     hook_event_name: String,
     name: String,
-}
-
-#[derive(serde::Deserialize)]
-struct CliConfig {
-    adapter: Option<AdapterConfig>,
-}
-
-#[derive(serde::Deserialize)]
-struct AdapterConfig {
-    #[serde(rename = "type")]
-    adapter_type: String,
-    #[serde(default)]
-    files_to_copy: Vec<PathBuf>,
-    post_create: Option<String>,
-    pre_delete: Option<String>,
-    post_delete: Option<String>,
-    timeout_ms: Option<u64>,
 }
 
 fn main() {
@@ -260,85 +242,22 @@ fn manager_for_setup(repo: &Path, setup_requested: bool) -> Result<(Manager, boo
             .map_err(|e| e.to_string());
     }
 
-    match load_adapter(repo)? {
-        Some(adapter) => Manager::with_adapter(repo, Config::default(), Some(adapter))
-            .map(|m| (m, true))
-            .map_err(|e| e.to_string()),
+    let cfg = config::load_config(repo);
+    match cfg.adapter {
+        Some(ref adapter_cfg) => {
+            let adapter = config::build_adapter(adapter_cfg);
+            Manager::with_adapter(repo, Config::default(), Some(adapter))
+                .map(|m| (m, true))
+                .map_err(|e| e.to_string())
+        }
         None => {
             eprintln!(
-                "[iso-code] WARNING: --setup requested but no adapter is configured; creating worktree without setup"
+                "[iso-code] Warning: --setup requested but no adapter configured; creating worktree without setup"
             );
             Manager::new(repo, Config::default())
                 .map(|m| (m, false))
                 .map_err(|e| e.to_string())
         }
-    }
-}
-
-fn load_adapter(repo: &Path) -> Result<Option<Box<dyn EcosystemAdapter>>, String> {
-    let Some(config_path) = find_config_path(repo) else {
-        return Ok(None);
-    };
-
-    let raw = std::fs::read_to_string(&config_path)
-        .map_err(|e| format!("failed to read {}: {e}", config_path.display()))?;
-    let config: CliConfig = toml::from_str(&raw)
-        .map_err(|e| format!("failed to parse {}: {e}", config_path.display()))?;
-
-    let Some(adapter) = config.adapter else {
-        return Ok(None);
-    };
-
-    match adapter.adapter_type.as_str() {
-        "default" => Ok(Some(Box::new(DefaultAdapter::new(adapter.files_to_copy)))),
-        "shell-command" => {
-            let mut shell = ShellCommandAdapter::new();
-            if let Some(cmd) = adapter.post_create {
-                shell = shell.with_post_create(cmd);
-            }
-            if let Some(cmd) = adapter.pre_delete {
-                shell = shell.with_pre_delete(cmd);
-            }
-            if let Some(cmd) = adapter.post_delete {
-                shell = shell.with_post_delete(cmd);
-            }
-            if let Some(timeout_ms) = adapter.timeout_ms {
-                shell = shell.with_timeout_ms(timeout_ms);
-            }
-            Ok(Some(Box::new(shell)))
-        }
-        other => Err(format!(
-            "unsupported adapter type {other:?} in {}",
-            config_path.display()
-        )),
-    }
-}
-
-fn find_config_path(repo: &Path) -> Option<PathBuf> {
-    let project = repo.join(".iso-code.toml");
-    if project.exists() {
-        return Some(project);
-    }
-
-    user_config_path().filter(|p| p.exists())
-}
-
-fn user_config_path() -> Option<PathBuf> {
-    #[cfg(windows)]
-    {
-        std::env::var_os("APPDATA")
-            .map(PathBuf::from)
-            .map(|p| p.join("iso-code").join("config.toml"))
-    }
-
-    #[cfg(not(windows))]
-    {
-        if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
-            return Some(PathBuf::from(xdg).join("iso-code").join("config.toml"));
-        }
-        std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .map(|p| p.join(".config").join("iso-code").join("config.toml"))
     }
 }
 
