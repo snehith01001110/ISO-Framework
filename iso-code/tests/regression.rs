@@ -267,10 +267,11 @@ fn regression_qa_r_007_rate_limit_blocks_runaway_creation() {
     cfg.max_worktrees = 5;
     let mgr = Manager::new(repo.path(), cfg).unwrap();
 
-    // The primary worktree (repo root) counts toward the limit, so
-    // `max_worktrees = 5` permits exactly 4 additional worktrees.
+    // The primary checkout does not count toward the managed secondary
+    // worktree limit, so `max_worktrees = 5` permits exactly 5 additional
+    // worktrees.
     let mut handles = Vec::new();
-    for i in 0..4 {
+    for i in 0..5 {
         let (h, _) = mgr
             .create(
                 format!("rl-{i}"),
@@ -282,8 +283,8 @@ fn regression_qa_r_007_rate_limit_blocks_runaway_creation() {
     }
 
     let result = mgr.create(
-        "rl-5",
-        repo.path().join("rl-wt-5"),
+        "rl-6",
+        repo.path().join("rl-wt-6"),
         CreateOptions::default(),
     );
     assert_matches!(
@@ -291,7 +292,7 @@ fn regression_qa_r_007_rate_limit_blocks_runaway_creation() {
         Err(WorktreeError::RateLimitExceeded { current: 5, max: 5 })
     );
     assert!(
-        !repo.path().join("rl-wt-5").exists(),
+        !repo.path().join("rl-wt-6").exists(),
         "rate-limited create must not create a directory"
     );
 
